@@ -82,7 +82,7 @@ class GithubOAuth:
     def get_auth_url(self):
         params = {
             'client_id': current_app.config['GITHUB_CLIENT_ID'],
-            'redirect_uri': url_for('auth.oauth_callback', provider='github', _external=True),
+            'redirect_uri': url_for('auth.oauth_callback', provider='github', _external=True).replace('http://', 'https://'),
             'scope': 'read:user user:email',
             'state': 'github'
         }
@@ -139,7 +139,7 @@ class MicrosoftOAuth:
         params = {
             'client_id': current_app.config['MICROSOFT_CLIENT_ID'],
             'response_type': 'code',
-            'redirect_uri': url_for('auth.oauth_callback', provider='microsoft', _external=True),
+            'redirect_uri': url_for('auth.oauth_callback', provider='microsoft', _external=True).replace('http://', 'https://'),
             'scope': 'User.Read',
             'response_mode': 'query'
         }
