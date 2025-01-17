@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>天际中心 - {% block title %}{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="{{ url_for('static', filename='js/toast.js') }}"></script>
+    {% if config.ENABLE_CLOUDFLARE %}
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    {% endif %}
+</head>
+<body class="bg-gray-100">
+    <!-- 移动端遮罩 -->
+    <div id="sidebar-overlay" 
+         class="fixed inset-0 bg-gray-600 bg-opacity-50 z-20 lg:hidden hidden" 
+         onclick="toggleSidebar()">
+    </div>
+
+    <div class="flex h-screen">
+        <!-- 侧边导航栏 -->
+        <div id="sidebar" 
+             class="fixed inset-y-0 left-0 transform -translate-x-full lg:translate-x-0 lg:static lg:inset-0 
+                    w-64 bg-white shadow-lg transition duration-200 ease-in-out z-30">
+            <div class="flex items-center justify-between p-4 border-b">
+                <div class="text-lg font-semibold text-gray-900">天际中心</div>
+                <!-- 移动端关闭按钮 -->
+                <button class="lg:hidden text-gray-500 hover:text-gray-600" onclick="toggleSidebar()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <nav class="mt-2">
+                {% if current_user.is_authenticated %}
+                <!-- 主页 -->
+                <a href="{{ url_for('dashboard.index') }}" 
+                   class="block px-4 py-2 hover:bg-blue-50 {% if active_page == 'index' %}bg-blue-100{% endif %}">
+                    <i class="fas fa-home mr-2"></i>主页
+                </a>
+                
+                <!-- 申请提交 -->
+                <div class="mt-2">
+                    <div class="px-4 py-2 text-sm font-semibold text-gray-600">申请提交</div>
+                    {% if not current_user.verified_qq %}
+                    <a href="{{ url_for('dashboard.submit_player_application') }}" 
+                       class="block px-8 py-2 text-sm text-gray-400 flex items-center">
+                        <span>玩家权限申请</span>
+                        <i class="fas fa-lock ml-2"></i>
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('dashboard.submit_player_application') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'submit_player_application' %}bg-blue-100{% endif %}">
+                        玩家权限申请
+                    </a>
+                    {% endif %}
+
+                    {% if not current_user.verified_qq %}
+                    <a href="{{ url_for('dashboard.submit_line_application') }}"
+                       class="block px-8 py-2 text-sm text-gray-400 flex items-center">
+                        <span>线路申请</span>
+                        <i class="fas fa-lock ml-2"></i>
+                    </a>
+                    {% elif not has_creative_permission() %}
+                    <a href="{{ url_for('dashboard.submit_line_application') }}"
+                       class="block px-8 py-2 text-sm text-gray-400 flex items-center">
+                        <span>线路申请</span>
+                        <i class="fas fa-lock ml-2"></i>
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('dashboard.submit_line_application') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'submit_line_application' %}bg-blue-100{% endif %}">
+                        线路申请
+                    </a>
+                    {% endif %}
+
+                    {% if not current_user.verified_qq %}
+                    <a href="{{ url_for('dashboard.submit_city_application') }}"
+                       class="block px-8 py-2 text-sm text-gray-400 flex items-center">
+                        <span>城市申请</span>
+                        <i class="fas fa-lock ml-2"></i>
+                    </a>
+                    {% elif not has_creative_permission() %}
+                    <a href="{{ url_for('dashboard.submit_city_application') }}"
+                       class="block px-8 py-2 text-sm text-gray-400 flex items-center">
+                        <span>城市申请</span>
+                        <i class="fas fa-lock ml-2"></i>
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('dashboard.submit_city_application') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'submit_city_application' %}bg-blue-100{% endif %}">
+                        城市申请
+                    </a>
+                    {% endif %}
+
+                    <a href="{{ url_for('dashboard.applications') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'applications' %}bg-blue-100{% endif %}">
+                        申请记录
+                    </a>
+
+                    <a href="{{ url_for('dashboard.game_accounts') }}"
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'game_accounts' %}bg-blue-100{% endif %}">
+                        游戏内账号管理
+                    </a>
+                </div>
+                
+                <!-- 我的权益 -->
+                <div class="mt-4">
+                    <div class="px-4 py-2 text-sm font-semibold text-gray-600">我的权益</div>
+                    <a href="{{ url_for('dashboard.coin_history') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'coin_history' %}bg-blue-100{% endif %}">
+                        天际币流水
+                    </a>
+                    <a href="{{ url_for('dashboard.coin_tasks') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'coin_tasks' %}bg-blue-100{% endif %}">
+                        天际币任务
+                    </a>
+                    <a href="{{ url_for('dashboard.activities') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'activities' %}bg-blue-100{% endif %}">
+                        活动
+                    </a>
+                </div>
+                
+                <!-- 账号设置 -->
+                <div class="mt-4">
+                    <div class="px-4 py-2 text-sm font-semibold text-gray-600">账号设置</div>
+                    <a href="{{ url_for('dashboard.profile') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'profile' %}bg-blue-100{% endif %}">
+                        个人资料
+                    </a>
+                    <a href="{{ url_for('dashboard.change_password') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'change_password' %}bg-blue-100{% endif %}">
+                        修改密码
+                    </a>
+                    <a href="{{ url_for('dashboard.oauth_accounts') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'oauth_accounts' %}bg-blue-100{% endif %}">
+                        第三方账号
+                    </a>
+                </div>
+                
+                <!-- 系统设置（仅管理员可见） -->
+                {% if current_user.is_admin %}
+                <div class="mt-4">
+                    <div class="px-4 py-2 text-sm font-semibold text-gray-600">系统设置</div>
+                    <a href="{{ url_for('dashboard.user_management') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'user_management' %}bg-blue-100{% endif %}">
+                        用户管理
+                    </a>
+                    <a href="{{ url_for('dashboard.activity_management') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'activity_management' %}bg-blue-100{% endif %}">
+                        活动设置
+                    </a>
+                    <a href="{{ url_for('dashboard.vote_management') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'vote_management' %}bg-blue-100{% endif %}">
+                        投票管理
+                    </a>
+                    <a href="{{ url_for('dashboard.application_review') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'application_review' %}bg-blue-100{% endif %}">
+                        表单审核
+                    </a>
+                    <a href="{{ url_for('dashboard.oauth_management') }}" 
+                       class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'oauth_management' %}bg-blue-100{% endif %}">
+                        OAuth应用管理
+                    </a>
+                </div>
+                {% endif %}
+                {% else %}
+                <!-- 未登录状态显示 -->
+                <div class="px-4 py-2 text-sm font-semibold text-gray-600">账号</div>
+                <a href="{{ url_for('auth.login') }}" 
+                   class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'login' %}bg-blue-100{% endif %}">
+                    <i class="fas fa-sign-in-alt mr-2"></i>登录
+                </a>
+                <a href="{{ url_for('auth.register') }}" 
+                   class="block px-8 py-2 text-sm hover:bg-blue-50 {% if active_page == 'register' %}bg-blue-100{% endif %}">
+                    <i class="fas fa-user-plus mr-2"></i>注册
+                </a>
+                {% endif %}
+            </nav>
+        </div>
+        
+        <!-- 主内容区 -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <!-- 顶部栏 -->
+            <div class="bg-white shadow-sm lg:hidden">
+                <div class="flex items-center px-4 py-3">
+                    <button class="text-gray-500 hover:text-gray-600 mr-3" onclick="toggleSidebar()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1 class="text-lg font-semibold">天际中心</h1>
+                </div>
+            </div>
+            
+            <!-- 内容区域 -->
+            <div class="flex-1 overflow-auto p-4 lg:p-6">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        
+        if (sidebar.classList.contains('-translate-x-full')) {
+            // 打开侧边栏
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; // 防止背景滚动
+        } else {
+            // 关闭侧边栏
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+
+    // 监听窗口大小变化
+    window.addEventListener('resize', () => {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        
+        if (window.innerWidth >= 1024) { // lg breakpoint
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.add('hidden');
+            document.body.style.overflow = '';
+        } else {
+            sidebar.classList.add('-translate-x-full');
+        }
+    });
+    </script>
+    
+    <!-- Font Awesome 图标 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    {% include 'components/toast.html' %}
+    <!-- 页面特定的 JavaScript -->
+    {% block scripts %}{% endblock %}
+</body>
+</html> 

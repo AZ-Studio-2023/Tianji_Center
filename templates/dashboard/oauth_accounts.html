@@ -1,0 +1,156 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}第三方账号{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="p-4 rounded-lg {% if category == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <h2 class="text-2xl font-bold">第三方账号</h2>
+    
+    <div class="grid grid-cols-1 gap-6">
+        <!-- QQ账号 -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-semibold">QQ账号</h3>
+                    {% if current_user.qq_id %}
+                    <div class="text-green-500">已绑定{% if current_user.qq_reward %}（已获得奖励）{% endif %}</div>
+                    {% else %}
+                    <div class="text-gray-500">未绑定（可获得15天际币）</div>
+                    {% endif %}
+                </div>
+                <div>
+                    {% if current_user.qq_id %}
+                        {% if current_user.qq_reward %}
+                        <button onclick="unbind('qq')" class="text-red-500 hover:text-red-600">解绑</button>
+                        {% else %}
+                        <div class="text-gray-500">不可解绑</div>
+                        {% endif %}
+                    {% else %}
+                    <a href="{{ url_for('auth.oauth_login', provider='qq') }}" 
+                       class="text-blue-500 hover:text-blue-600">绑定</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 微信账号 -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-semibold">微信账号</h3>
+                    {% if current_user.wechat_id %}
+                    <div class="text-green-500">已绑定{% if current_user.wechat_reward %}（已获得奖励）{% endif %}</div>
+                    {% else %}
+                    <div class="text-gray-500">未绑定（可获得15天际币）</div>
+                    {% endif %}
+                </div>
+                <div>
+                    {% if current_user.wechat_id %}
+                        {% if current_user.wechat_reward %}
+                        <button onclick="unbind('wechat')" class="text-red-500 hover:text-red-600">解绑</button>
+                        {% else %}
+                        <div class="text-gray-500">不可解绑</div>
+                        {% endif %}
+                    {% else %}
+                    <a href="{{ url_for('auth.oauth_login', provider='wechat') }}" 
+                       class="text-green-500 hover:text-green-600">绑定</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Github账号 -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-semibold">Github账号</h3>
+                    {% if current_user.github_id %}
+                    <div class="text-green-500">已绑定{% if current_user.github_reward %}（已获得奖励）{% endif %}</div>
+                    {% else %}
+                    <div class="text-gray-500">未绑定（可获得15天际币）</div>
+                    {% endif %}
+                </div>
+                <div>
+                    {% if current_user.github_id %}
+                        {% if current_user.github_reward %}
+                        <button onclick="unbind('github')" class="text-red-500 hover:text-red-600">解绑</button>
+                        {% else %}
+                        <div class="text-gray-500">不可解绑</div>
+                        {% endif %}
+                    {% else %}
+                    <a href="{{ url_for('auth.oauth_login', provider='github') }}" 
+                       class="text-gray-700 hover:text-gray-900">绑定</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 微软账号 -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-semibold">微软账号</h3>
+                    {% if current_user.microsoft_id %}
+                    <div class="text-green-500">已绑定{% if current_user.microsoft_reward %}（已获得奖励）{% endif %}</div>
+                    {% else %}
+                    <div class="text-gray-500">未绑定（可获得15天际币）</div>
+                    {% endif %}
+                </div>
+                <div>
+                    {% if current_user.microsoft_id %}
+                        {% if current_user.microsoft_reward %}
+                        <button onclick="unbind('microsoft')" class="text-red-500 hover:text-red-600">解绑</button>
+                        {% else %}
+                        <div class="text-gray-500">不可解绑</div>
+                        {% endif %}
+                    {% else %}
+                    <a href="{{ url_for('auth.oauth_login', provider='microsoft') }}" 
+                       class="text-blue-600 hover:text-blue-700">绑定</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function unbind(provider) {
+    if (!confirm(`确定要解绑${provider}账号吗？`)) {
+        return;
+    }
+    
+    fetch('{{ url_for("auth.unbind") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ provider })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('解绑成功', 'success');
+            location.reload();
+        }
+    })
+    .catch(error => {
+        showToast('解绑失败，请重试', 'error');
+        console.error('Error:', error);
+    });
+}
+</script>
+{% endblock %} 

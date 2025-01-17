@@ -1,0 +1,209 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}用户管理{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <h2 class="text-2xl font-bold">用户管理</h2>
+    
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="min-w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用户名</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">邮箱</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">身份</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">天际币</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for user in users %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ user.username }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ user.email }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <select onchange="updateRole('{{ user.id }}', this.value)" class="border rounded px-2 py-1">
+                            <option value="visitor" {% if user.role == 'visitor' %}selected{% endif %}>游客</option>
+                            <option value="player" {% if user.role == 'player' %}selected{% endif %}>玩家</option>
+                            <option value="creator" {% if user.role == 'creator' %}selected{% endif %}>创造者</option>
+                            <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>管理员</option>
+                        </select>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-yellow-500">{{ user.coins }}</span>
+                        <button onclick="showCoinModal('{{ user.id }}')" class="ml-2 text-blue-500 hover:text-blue-700">
+                            修改
+                        </button>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <button onclick="resetPassword('{{ user.id }}')" class="text-red-500 hover:text-red-700">
+                            重置密码
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 天际币修改弹窗 -->
+<div id="coinModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg p-6 w-96">
+        <h3 class="text-lg font-semibold mb-4">修改天际币</h3>
+        <form onsubmit="updateCoins(event)" class="space-y-4">
+            <input type="hidden" name="user_id" id="coinModalUserId">
+            <div>
+                <label class="block text-gray-700">变动数量（正数增加，负数减少）</label>
+                <input type="number" name="amount" class="w-full border rounded px-3 py-2" required>
+            </div>
+            <div>
+                <label class="block text-gray-700">变动原因</label>
+                <input type="text" name="reason" class="w-full border rounded px-3 py-2" required>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button type="button" onclick="hideCoinModal()" 
+                        class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                    取消
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    确认
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateRole(userId, role) {
+    fetch(`/dashboard/update-user/${userId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `action=update_role&role=${role}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        }
+    });
+}
+
+function showCoinModal(userId) {
+    document.getElementById('coinModalUserId').value = userId;
+    document.getElementById('coinModal').classList.remove('hidden');
+}
+
+function hideCoinModal() {
+    document.getElementById('coinModal').classList.add('hidden');
+    document.getElementById('coinModal').querySelector('form').reset();
+}
+
+function updateCoins(event) {
+    event.preventDefault();
+    const form = event.target;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const formData = new FormData(form);
+    const userId = formData.get('user_id');
+    
+    // 添加 action 参数
+    formData.append('action', 'update_coins');
+    
+    // 禁用提交按钮
+    submitBtn.disabled = true;
+    submitBtn.textContent = '处理中...';
+    
+    fetch(`{{ url_for("dashboard.update_user", user_id=0) }}`.replace('0', userId), {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('网络错误');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('天际币修改成功', 'success');
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        }
+    })
+    .catch(error => {
+        showToast(error.message || '操作失败，请重试', 'error');
+        console.error('Error:', error);
+    })
+    .finally(() => {
+        // 恢复按钮状态
+        submitBtn.disabled = false;
+        submitBtn.textContent = '确认';
+        hideCoinModal();
+    });
+}
+
+function resetPassword(userId) {
+    if (!confirm('确定要重置该用户的密码吗？')) {
+        return;
+    }
+    
+    fetch(`/dashboard/reset-password/${userId}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            alert('密码已重置，新密码已发送至用户邮箱');
+        }
+    });
+}
+
+function updateUser(userId, action) {
+    const form = document.querySelector(`form[data-user-id="${userId}"]`);
+    const formData = new FormData(form);
+    formData.append('action', action);
+    
+    fetch(`/dashboard/update-user/${userId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('更新成功', 'success');
+            location.reload();
+        }
+    });
+}
+
+function resetPassword(userId) {
+    if (!confirm('确定要重置该用户的密码吗？')) {
+        return;
+    }
+    
+    fetch(`/dashboard/reset-password/${userId}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('密码已重置，新密码已发送至用户邮箱', 'success');
+        }
+    });
+}
+</script>
+{% endblock %} 

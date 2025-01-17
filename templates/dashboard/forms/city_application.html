@@ -1,0 +1,184 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}城市申请{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold">城市申请</h2>
+    </div>
+
+    <!-- 在表单顶部添加费用提示 -->
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                    提交此申请需要支付 {{ fee }} 天际币。您当前拥有 {{ current_user.coins }} 天际币。
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 申请表单 -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <form onsubmit="submitApplication(event)" class="space-y-4">
+            <!-- 基本信息 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">您的昵称</label>
+                <input type="text" name="nickname" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">您的天际论坛用户名</label>
+                <input type="text" name="forum_username" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">QQ号</label>
+                <input type="text" name="qq_number" value="{{ current_user.verified_qq }}" readonly
+                       class="w-full px-3 py-2 border rounded-lg bg-gray-100 focus:outline-none">
+            </div>
+
+            <div class="border-t my-6"></div>
+
+            <!-- 城市信息 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">城市名 | 中文</label>
+                <input type="text" name="city_name_cn" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">城市名 | 英文</label>
+                <input type="text" name="city_name_en" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- 区县信息 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">其下区县</label>
+                <div id="districts" class="space-y-2">
+                    <div class="flex space-x-2">
+                        <input type="text" name="district_cn[]" placeholder="区县名称（中文）" required
+                               class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" name="district_en[]" placeholder="区县名称（英文）" required
+                               class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button type="button" onclick="addDistrict()"
+                                class="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                            +
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 规划图 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">规划图</label>
+                <input type="url" name="plan_image" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="mt-1 text-sm text-gray-500">请将图片上传至第三方图床，把图片链接填写在此</p>
+            </div>
+
+            {% if config.ENABLE_CLOUDFLARE %}
+            <div class="cf-turnstile" data-sitekey="{{ config.CLOUDFLARE_SITE_KEY }}"></div>
+            {% endif %}
+
+            <div class="flex justify-end">
+                <button type="submit" 
+                        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                    提交申请
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// 添加区县输入框
+function addDistrict() {
+    const container = document.getElementById('districts');
+    const div = document.createElement('div');
+    div.className = 'flex space-x-2';
+    div.innerHTML = `
+        <input type="text" name="district_cn[]" placeholder="区县名称（中文）" required
+               class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <input type="text" name="district_en[]" placeholder="区县名称（英文）" required
+               class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button type="button" onclick="removeDistrict(this)"
+                class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+            -
+        </button>
+    `;
+    container.appendChild(div);
+}
+
+// 移除区县输入框
+function removeDistrict(button) {
+    button.parentElement.remove();
+}
+
+function submitApplication(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    const data = {};
+    
+    // 特殊处理区县数组
+    const districts = [];
+    const districtsCn = formData.getAll('district_cn[]');
+    const districtsEn = formData.getAll('district_en[]');
+    
+    for (let i = 0; i < districtsCn.length; i++) {
+        if (districtsCn[i].trim() && districtsEn[i].trim()) {
+            districts.push({
+                cn: districtsCn[i].trim(),
+                en: districtsEn[i].trim()
+            });
+        }
+    }
+    
+    formData.forEach((value, key) => {
+        if (!key.endsWith('[]')) {
+            data[key] = value;
+        }
+    });
+    
+    data.districts = districts;
+
+    {% if config.ENABLE_CLOUDFLARE %}
+    const token = turnstile.getResponse();
+    if (!token) {
+        showToast('请完成人机验证', 'error');
+        return;
+    }
+    data.cf_token = token;
+    {% endif %}
+
+    fetch('{{ url_for("dashboard.submit_application", form_type="city") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('申请提交成功', 'success');
+            setTimeout(() => location.href = '{{ url_for("dashboard.applications") }}', 1500);
+        }
+    })
+    .catch(error => {
+        showToast('提交失败，请重试', 'error');
+        console.error('Error:', error);
+    });
+}
+</script>
+{% endblock %} 

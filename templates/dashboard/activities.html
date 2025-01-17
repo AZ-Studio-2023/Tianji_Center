@@ -1,0 +1,108 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}活动列表{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <h2 class="text-2xl font-bold">活动列表</h2>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for activity in activities %}
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold mb-2">{{ activity.title }}</h3>
+            <div class="text-sm text-gray-500 space-y-1">
+                <p>类型：
+                    {% if activity.type == 'lucky_red_packet' %}
+                    拼手气红包
+                    {% elif activity.type == 'fixed_red_packet' %}
+                    固定红包
+                    {% else %}
+                    抽奖活动
+                    {% endif %}
+                </p>
+                <p>时间：{{ activity.start_time.strftime('%Y-%m-%d %H:%M') }} 至 {{ activity.end_time.strftime('%Y-%m-%d %H:%M') }}</p>
+                <p>状态：
+                    {% if activity.status == 'active' %}
+                    <span class="text-green-500">进行中</span>
+                    {% else %}
+                    <span class="text-gray-500">已结束</span>
+                    {% endif %}
+                </p>
+            </div>
+            
+            {% if activity.status == 'active' %}
+            {% if activity.type == 'lucky_red_packet' %}
+            <div class="mt-4">
+                <p class="text-sm text-gray-500">剩余：{{ activity.config.count - activity.participants|length }}/{{ activity.config.count }}</p>
+                {% if not activity.get_participant(current_user.id) %}
+                <button onclick="joinActivity({{ activity.id }})" 
+                        class="mt-2 w-full bg-red-500 text-white py-2 rounded hover:bg-red-600">
+                    抢红包
+                </button>
+                {% else %}
+                <div class="mt-2 text-center text-gray-500">已参与</div>
+                {% endif %}
+            </div>
+            {% elif activity.type == 'fixed_red_packet' %}
+            <div class="mt-4">
+                <p class="text-sm text-gray-500">剩余：{{ activity.config.count - activity.participants|length }}/{{ activity.config.count }}</p>
+                {% if not activity.get_participant(current_user.id) %}
+                <button onclick="joinActivity({{ activity.id }})" 
+                        class="mt-2 w-full bg-red-500 text-white py-2 rounded hover:bg-red-600">
+                    领取红包
+                </button>
+                {% else %}
+                <div class="mt-2 text-center text-gray-500">已领取</div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="mt-4">
+                <p class="text-sm text-gray-500">奖品：
+                    {% for prize in activity.config.prizes %}
+                    {% if prize.type == 'coins' %}
+                    {{ prize.amount }}天际币 x{{ prize.count }}
+                    {% else %}
+                    {{ prize.name }} x{{ prize.count }}
+                    {% endif %}
+                    {% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                </p>
+                {% if not activity.get_participant(current_user.id) %}
+                <button onclick="joinActivity({{ activity.id }})" 
+                        class="mt-2 w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">
+                    参与抽奖
+                </button>
+                {% else %}
+                <div class="mt-2 text-center text-gray-500">已参与</div>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function joinActivity(activityId) {
+    fetch(`/dashboard/join-activity/${activityId}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast(data.message, 'success');
+            setTimeout(() => location.reload(), 1500);
+        }
+    })
+    .catch(error => {
+        showToast('参与失败，请重试', 'error');
+        console.error('Error:', error);
+    });
+}
+</script>
+{% endblock %} 

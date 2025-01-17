@@ -1,0 +1,281 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}线路申请{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold">线路申请</h2>
+    </div>
+
+    <!-- 在表单顶部添加费用提示 -->
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                    提交此申请需要支付 {{ fee }} 天际币。您当前拥有 {{ current_user.coins }} 天际币。
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 申请表单 -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <form onsubmit="submitApplication(event)" class="space-y-4">
+            <!-- 基本信息 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">您的昵称</label>
+                <input type="text" name="nickname" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">您的天际论坛用户名</label>
+                <input type="text" name="forum_email" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">QQ号</label>
+                <input type="text" name="qq_number" value="{{ current_user.verified_qq }}" readonly
+                       class="w-full px-3 py-2 border rounded-lg bg-gray-100 focus:outline-none">
+            </div>
+
+            <div class="border-t my-6"></div>
+
+            <!-- 线路信息 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">线路名称 | 中文</label>
+                <input type="text" name="line_name_cn" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">线路名称 | English</label>
+                <input type="text" name="line_name_en" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div class="border-t my-6"></div>
+
+            <!-- 线路类型 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">线路类型</label>
+                <div class="space-y-2">
+                    <label class="flex items-center">
+                        <input type="radio" name="line_type" value="地铁" required
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">地铁</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="line_type" value="铁路"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">铁路</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="line_type" value="公交"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">公交</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="line_type" value="轮渡"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">轮渡</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="line_type" value="航班"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">航班</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 最高时速 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">线路设计最高时速</label>
+                <div class="space-y-2">
+                    {% for speed in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120] %}
+                    <label class="flex items-center">
+                        <input type="radio" name="max_speed" value="{{ speed }}" required
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">{{ speed }} km/h</span>
+                    </label>
+                    {% endfor %}
+                    <label class="flex items-center">
+                        <input type="radio" name="max_speed" value="other"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">其他时速</span>
+                    </label>
+                    <input type="text" name="custom_speed" placeholder="请输入具体时速"
+                           class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mt-2 hidden"
+                           id="customSpeedInput">
+                </div>
+            </div>
+
+            <!-- 线路颜色 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">线路颜色</label>
+                <input type="text" name="line_color" required placeholder="#FFFFFF"
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="mt-1 text-sm text-gray-500">请填写十六进制颜色代码</p>
+            </div>
+
+            <!-- 编组 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">编组</label>
+                <input type="text" name="formation" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div class="border-t my-6"></div>
+
+            <!-- 途径站点 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">途径站点 | 上行</label>
+                <p class="mt-1 text-sm text-gray-500 mb-2">请按顺序填写上行线路途径站点</p>
+                <div id="upStations" class="space-y-2">
+                    <div class="flex space-x-2">
+                        <input type="text" name="up_stations[]" required
+                               class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button type="button" onclick="addStation('up')"
+                                class="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                            +
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">途径站点 | 下行</label>
+                <p class="mt-1 text-sm text-gray-500 mb-2">请按顺序填写下行线路途径站点。若与上行线路正好相反，无需填写。</p>
+                <div id="downStations" class="space-y-2">
+                    <div class="flex space-x-2">
+                        <input type="text" name="down_stations[]"
+                               class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button type="button" onclick="addStation('down')"
+                                class="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                            +
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 线路规划图 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">线路规划图</label>
+                <input type="url" name="plan_image" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="mt-1 text-sm text-gray-500">请将图片上传至第三方图床，把图片链接填写在此</p>
+            </div>
+
+            {% if config.ENABLE_CLOUDFLARE %}
+            <div class="cf-turnstile" data-sitekey="{{ config.CLOUDFLARE_SITE_KEY }}"></div>
+            {% endif %}
+
+            <div class="flex justify-end">
+                <button type="submit" 
+                        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                    提交申请
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// 处理自定义时速输入框的显示/隐藏
+document.querySelectorAll('input[name="max_speed"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const customInput = document.getElementById('customSpeedInput');
+        if (this.value === 'other') {
+            customInput.classList.remove('hidden');
+            customInput.required = true;
+        } else {
+            customInput.classList.add('hidden');
+            customInput.required = false;
+        }
+    });
+});
+
+// 添加站点输入框
+function addStation(direction) {
+    const container = document.getElementById(direction + 'Stations');
+    const div = document.createElement('div');
+    div.className = 'flex space-x-2';
+    div.innerHTML = `
+        <input type="text" name="${direction}_stations[]" 
+               class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+               ${direction === 'up' ? 'required' : ''}>
+        <button type="button" onclick="removeStation(this)"
+                class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+            -
+        </button>
+    `;
+    container.appendChild(div);
+}
+
+// 移除站点输入框
+function removeStation(button) {
+    button.parentElement.remove();
+}
+
+function submitApplication(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    const data = {};
+    
+    // 特殊处理站点数组
+    const upStations = [];
+    const downStations = [];
+    formData.getAll('up_stations[]').forEach(station => {
+        if (station.trim()) upStations.push(station.trim());
+    });
+    formData.getAll('down_stations[]').forEach(station => {
+        if (station.trim()) downStations.push(station.trim());
+    });
+    
+    formData.forEach((value, key) => {
+        if (!key.endsWith('[]')) {
+            data[key] = value;
+        }
+    });
+    
+    data.up_stations = upStations;
+    data.down_stations = downStations;
+
+    {% if config.ENABLE_CLOUDFLARE %}
+    const token = turnstile.getResponse();
+    if (!token) {
+        showToast('请完成人机验证', 'error');
+        return;
+    }
+    data.cf_token = token;
+    {% endif %}
+
+    fetch('{{ url_for("dashboard.submit_application", form_type="line") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('申请提交成功', 'success');
+            setTimeout(() => location.href = '{{ url_for("dashboard.applications") }}', 1500);
+        }
+    })
+    .catch(error => {
+        showToast('提交失败，请重试', 'error');
+        console.error('Error:', error);
+    });
+}
+</script>
+{% endblock %} 

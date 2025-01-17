@@ -1,0 +1,36 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}天际币记录{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <h2 class="text-2xl font-bold">天际币记录</h2>
+    
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="min-w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">变动</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">原因</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for record in records %}
+                <tr>
+                    <td class="px-6 py-4">{{ record.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td class="px-6 py-4">
+                        {% if record.amount > 0 %}
+                        <span class="text-green-500">+{{ record.amount }}</span>
+                        {% else %}
+                        <span class="text-red-500">{{ record.amount }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">{{ record.reason }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %} 

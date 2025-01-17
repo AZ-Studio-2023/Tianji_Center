@@ -1,0 +1,166 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}注册{% endblock %}
+
+{% block content %}
+<div class="min-h-full flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full">
+        <div class="text-center">
+            <h2 class="text-3xl font-extrabold text-gray-900">创建新账号</h2>
+            <p class="mt-2 text-sm text-gray-600">
+                或者
+                <a href="{{ url_for('auth.login') }}" class="font-medium text-indigo-600 hover:text-indigo-500">
+                    登录现有账号
+                </a>
+            </p>
+        </div>
+
+        <div class="mt-8 bg-white py-8 px-4 shadow-lg sm:rounded-lg sm:px-10">
+            <form class="space-y-6" method="POST" onsubmit="return handleSubmit(event)">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">邮箱地址</label>
+                    <div class="mt-1">
+                        <input id="email" name="email" type="email" required
+                               class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700">用户名</label>
+                    <div class="mt-1">
+                        <input id="username" name="username" type="text" required
+                               class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
+                    <div class="mt-1">
+                        <input id="password" name="password" type="password" required
+                               class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="code" class="block text-sm font-medium text-gray-700">验证码</label>
+                    <div class="mt-1 flex rounded-md shadow-sm">
+                        <input type="text" name="code" id="code" required
+                               class="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-l-md border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <button type="button" onclick="sendCode()"
+                                class="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            获取验证码
+                        </button>
+                    </div>
+                </div>
+
+                {% if config.ENABLE_CLOUDFLARE %}
+                <div class="flex justify-center">
+                    <div class="cf-turnstile" data-sitekey="{{ config.CF_SITE_KEY }}"></div>
+                </div>
+                {% endif %}
+
+                <div>
+                    <button type="submit"
+                            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        注册
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let canSendCode = true;
+let countdown = 60;
+
+function updateButton(btn) {
+    if (countdown > 0) {
+        btn.disabled = true;
+        btn.textContent = `${countdown}秒后重试`;
+        countdown--;
+        setTimeout(() => updateButton(btn), 1000);
+    } else {
+        btn.disabled = false;
+        btn.textContent = '获取验证码';
+        canSendCode = true;
+        countdown = 60;
+    }
+}
+
+function sendCode() {
+    if (!canSendCode) return;
+    
+    const email = document.getElementById('email').value;
+    if (!email) {
+        showToast('请输入邮箱地址', 'error');
+        return;
+    }
+    
+    const btn = document.querySelector('button[onclick="sendCode()"]');
+    canSendCode = false;
+    btn.disabled = true;
+    
+    fetch('{{ url_for("auth.send_code") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+            canSendCode = true;
+            btn.disabled = false;
+        } else {
+            showToast('验证码已发送', 'success');
+            updateButton(btn);
+        }
+    })
+    .catch(error => {
+        showToast('发送失败，请重试', 'error');
+        canSendCode = true;
+        btn.disabled = false;
+    });
+}
+
+function handleSubmit(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const data = {
+        email: formData.get('email'),
+        username: formData.get('username'),
+        password: formData.get('password'),
+        code: formData.get('code'),
+        'cf-turnstile-response': formData.get('cf-turnstile-response')
+    };
+    
+    fetch('{{ url_for("auth.register") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('注册成功，请登录', 'success');
+            setTimeout(() => {
+                window.location.href = '{{ url_for("auth.login") }}';
+            }, 1500);
+        }
+    })
+    .catch(error => {
+        showToast('注册失败，请重试', 'error');
+    });
+    
+    return false;
+}
+</script>
+{% endblock %} 

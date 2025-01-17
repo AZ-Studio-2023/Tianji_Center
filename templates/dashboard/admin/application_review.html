@@ -1,0 +1,198 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}表单审核{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold">表单审核</h2>
+    </div>
+
+    <!-- 筛选器 -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <form id="filterForm" class="flex space-x-4">
+            <select name="type" class="px-4 py-2 border rounded-lg" onchange="this.form.submit()">
+                <option value="">所有类型</option>
+                <option value="player" {% if request.args.get('type') == 'player' %}selected{% endif %}>玩家权限申请</option>
+                <option value="line" {% if request.args.get('type') == 'line' %}selected{% endif %}>线路申请</option>
+                <option value="city" {% if request.args.get('type') == 'city' %}selected{% endif %}>城市申请</option>
+            </select>
+            <select name="status" class="px-4 py-2 border rounded-lg" onchange="this.form.submit()">
+                <option value="">所有状态</option>
+                <option value="pending" {% if request.args.get('status') == 'pending' %}selected{% endif %}>待审核</option>
+                <option value="approved" {% if request.args.get('status') == 'approved' %}selected{% endif %}>已通过</option>
+                <option value="rejected" {% if request.args.get('status') == 'rejected' %}selected{% endif %}>未通过</option>
+            </select>
+        </form>
+    </div>
+
+    <!-- 申请列表 -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="min-w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">申请类型</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">申请人</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">提交时间</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for application in applications %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ application.type_name }}申请</td>
+                    <td class="px-6 py-4">{{ application.user.username }}</td>
+                    <td class="px-6 py-4">{{ application.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td class="px-6 py-4">
+                        {% if application.status == 'pending' %}
+                        <span class="px-2 py-1 text-yellow-800 bg-yellow-100 rounded-full text-sm">待审核</span>
+                        {% elif application.status == 'approved' %}
+                        <span class="px-2 py-1 text-green-800 bg-green-100 rounded-full text-sm">已通过</span>
+                        {% else %}
+                        <span class="px-2 py-1 text-red-800 bg-red-100 rounded-full text-sm">未通过</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 space-x-2">
+                        <button onclick="viewApplication({{ application.id }})"
+                                class="px-3 py-1 text-blue-600 hover:text-blue-800">
+                            查看
+                        </button>
+                        {% if application.status == 'pending' %}
+                        <button onclick="reviewApplication({{ application.id }}, 'approved')"
+                                class="px-3 py-1 text-green-600 hover:text-green-800">
+                            通过
+                        </button>
+                        <button onclick="reviewApplication({{ application.id }}, 'rejected')"
+                                class="px-3 py-1 text-red-600 hover:text-red-800">
+                            拒绝
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 查看申请详情的模态框 -->
+<div id="applicationModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 hidden">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg w-full max-w-4xl" style="max-height: 80vh;">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold">申请详情</h3>
+                    <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6 overflow-y-auto" style="max-height: calc(80vh - 85px);">
+                <div id="applicationContent">
+                    <!-- 动态加载申请内容 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function viewApplication(id) {
+    fetch(`/dashboard/application/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('applicationContent').innerHTML = formatApplicationContent(data);
+            document.getElementById('applicationModal').classList.remove('hidden');
+        });
+}
+
+function closeModal() {
+    document.getElementById('applicationModal').classList.add('hidden');
+}
+
+function formatApplicationContent(data) {
+    let html = '<table class="min-w-full divide-y divide-gray-200">';
+    html += '<tbody class="bg-white divide-y divide-gray-200">';
+    
+    // 添加基本信息
+    html += `
+        <tr>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">申请类型</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${data.type}申请</td>
+        </tr>
+        <tr>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">提交时间</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${data.created_at}</td>
+        </tr>
+    `;
+    
+    // 添加申请内容
+    for (const [key, value] of Object.entries(data.content)) {
+        // 跳过空值
+        if (!value || value === '') continue;
+        
+        // 处理逗号分隔的数组
+        if (Array.isArray(value) || (typeof value === 'string' && value.includes(','))) {
+            const items = Array.isArray(value) ? value : value.split(',');
+            html += `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">${key}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <tbody>
+                                ${items.map((item, index) => `
+                                    <tr>
+                                        <td class="pr-4 py-2 whitespace-nowrap text-sm text-gray-500">${index + 1}</td>
+                                        <td class="py-2 text-sm text-gray-900">${item.trim()}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+            `;
+        } else {
+            html += `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">${key}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${value}</td>
+                </tr>
+            `;
+        }
+    }
+    
+    html += '</tbody></table>';
+    return html;
+}
+
+function reviewApplication(id, status) {
+    let remark = '';
+    if (status === 'rejected') {
+        remark = prompt('请输入拒绝原因：');
+        if (remark === null) return;
+    }
+    
+    fetch('/dashboard/review-application', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            application_id: id,
+            status: status,
+            remark: remark
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('审核成功', 'success');
+            setTimeout(() => location.reload(), 1500);
+        }
+    });
+}
+</script>
+{% endblock %}

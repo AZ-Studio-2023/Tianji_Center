@@ -1,0 +1,190 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}主页{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- 用户信息卡片 -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center space-x-4">
+            <img src="{{ current_user.avatar_url }}" class="w-16 h-16 rounded-full">
+            <div>
+                <h2 class="text-xl font-bold">{{ current_user.username }}</h2>
+                <p class="text-gray-500">{{ current_user.role_name }}</p>
+                <p class="text-yellow-500">天际币：{{ current_user.coins }}</p>
+            </div>
+            {% if not today_checkin %}
+            <button onclick="checkin()" class="ml-auto px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                每日签到
+            </button>
+            {% else %}
+            <button disabled class="ml-auto px-4 py-2 bg-gray-500 text-white rounded">
+                已签到
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- 申请统计 -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold mb-4">申请统计</h3>
+        <div class="grid grid-cols-3 gap-4">
+            <div class="text-center">
+                <div class="text-2xl font-bold text-yellow-500">{{ stats.pending }}</div>
+                <div class="text-gray-500">待审核</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-green-500">{{ stats.approved }}</div>
+                <div class="text-gray-500">已通过</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-red-500">{{ stats.rejected }}</div>
+                <div class="text-gray-500">未通过</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 当前投票 -->
+    {% if current_votes %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold mb-4">当前投票</h3>
+        {% for vote in current_votes %}
+        <div class="border-b last:border-0 py-4">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h4 class="font-medium">{{ vote.title }}</h4>
+                    <p class="text-sm text-gray-500">
+                        {% if vote.start_time > current_time %}
+                        开始时间：{{ vote.start_time.strftime('%Y-%m-%d %H:%M') }}
+                        {% else %}
+                        截止时间：{{ vote.end_time.strftime('%Y-%m-%d %H:%M') }}
+                        {% endif %}
+                    </p>
+                    <p class="text-sm text-gray-500">
+                        同意：{{ vote.agree_votes }} | 反对：{{ vote.disagree_votes }}
+                    </p>
+                </div>
+                {% if not vote.has_voted and vote.is_active %}
+                <div class="space-x-2">
+                    <button onclick="vote({{ vote.id }}, true)" 
+                            class="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600">
+                        同意
+                    </button>
+                    <button onclick="vote({{ vote.id }}, false)" 
+                            class="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600">
+                        不同意
+                    </button>
+                </div>
+                {% elif not vote.is_active %}
+                <div class="text-gray-500">
+                    {% if vote.start_time > current_time %}
+                    未开始
+                    {% else %}
+                    已结束
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="text-gray-500">已投票</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    {% if current_user.is_authenticated %}
+    <!-- 退出登录按钮 -->
+    <div class="mt-8">
+        <a href="{{ url_for('auth.logout') }}" 
+           class="inline-flex items-center px-4 py-2 text-sm text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+            <i class="fas fa-sign-out-alt mr-2"></i>
+            退出登录
+        </a>
+</div>
+    {% endif %}
+    
+    <!-- 版权信息 -->
+    <div class="mt-12 pt-6 border-t border-gray-200">
+        <div class="text-center text-sm text-gray-500">
+            <p class="mb-2">天际中心 v1.0.0 公测版</p>
+            <p>Copyright © 2025 ChenMo. All rights reserved.</p>
+            <p class="mt-1">
+                <a href="https://github.com/AZ-Studio-2023/Tianji_Center" 
+                   target="_blank"
+                   class="text-blue-500 hover:text-blue-600">
+                    使用MIT协议开放源代码
+                </a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 页面加载时检查是否有 flash 消息需要显示
+document.addEventListener('DOMContentLoaded', function() {
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            showToast('{{ message }}', '{{ category }}');
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+});
+
+function checkin() {
+    const btn = document.querySelector('button[onclick="checkin()"]');
+    btn.disabled = true;
+    
+    fetch('{{ url_for("dashboard.checkin") }}', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+            btn.disabled = false;
+        } else {
+            const coins = data.coins;
+            btn.disabled = true;
+            btn.textContent = "已签到";
+            showToast(`签到成功，获得${coins}天际币`, 'success');
+        }
+    })
+    .catch(error => {
+        showToast('签到失败，请重试', 'error');
+        btn.disabled = false;
+        console.error('Error:', error);
+    });
+}
+
+function vote(voteId, agree) {
+    const buttons = document.querySelectorAll(`button[onclick^="vote(${voteId}"]`);
+    buttons.forEach(btn => btn.disabled = true);
+    
+    fetch('{{ url_for("dashboard.vote") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ vote_id: voteId, agree: agree })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+            buttons.forEach(btn => btn.disabled = false);
+        } else {
+            showToast('投票成功', 'success');
+            location.reload()
+        }
+    })
+    .catch(error => {
+        showToast('投票失败，请重试', 'error');
+        buttons.forEach(btn => btn.disabled = false);
+        console.error('Error:', error);
+    });
+}
+</script>
+{% endblock %} 

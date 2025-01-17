@@ -1,0 +1,314 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}玩家权限申请{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold">玩家权限申请</h2>
+    </div>
+
+    <!-- 在表单顶部添加费用提示 -->
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                    提交此申请需要支付 {{ fee }} 天际币。您当前拥有 {{ current_user.coins }} 天际币。
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 申请表单 -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <form onsubmit="submitApplication(event)" class="space-y-4">
+            <!-- 账号类型 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">您的游戏账号类型</label>
+                <div class="space-y-2">
+                    <label class="flex items-center">
+                        <input type="radio" name="game_account_type" value="微软登录" required
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">微软登录</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="game_account_type" value="Mojang登录"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">Mojang登录</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="game_account_type" value="离线登录"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">离线登录</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="game_account_type" value="第三方登录"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">第三方登录</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 玩家名 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">您的玩家名</label>
+                <input type="text" name="player_name" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- UUID -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">您的UUID</label>
+                <div class="relative flex">
+                    <input type="text" name="uuid" id="playerUuid" required
+                           class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button type="button" 
+                            id="getUuidBtn" 
+                            onclick="getPlayerUuid()"
+                            class="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1.5 bg-blue-100 text-blue-700 text-sm rounded hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            disabled>
+                        获取
+                    </button>
+                </div>
+                <p class="mt-1 text-sm text-gray-500">任何方式登录都有UUID，填写错误的UUID将不受理</p>
+            </div>
+
+            <!-- QQ号 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">您的QQ号</label>
+                <input type="text" name="qq_number" value="{{ current_user.verified_qq }}" readonly
+                       class="w-full px-3 py-2 border rounded-lg bg-gray-100 focus:outline-none">
+            </div>
+
+            <!-- 论坛邮箱 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">您的天际论坛账号用户名</label>
+                <input type="text" name="forum_email" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- MTR游玩时间 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">游玩MTR模组时间</label>
+                <div class="space-y-2">
+                    <label class="flex items-center">
+                        <input type="radio" name="play_time" value="不足一个月" required
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">不足一个月</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="play_time" value="大约三个月"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">大约三个月</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="play_time" value="大约六个月"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">大约六个月</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="play_time" value="大约九个月"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">大约九个月</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="play_time" value="大于一年"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">大于一年</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="play_time" value="大于两年"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">大于两年</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="play_time" value="大于三年"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">大于三年</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 在线时长 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">每月游戏在线时长</label>
+                <div class="space-y-2">
+                    <label class="flex items-center">
+                        <input type="radio" name="online_duration" value="1日" required
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">1日</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="online_duration" value="3日"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">3日</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="online_duration" value="5日"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">5日</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="online_duration" value="7日"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">7日</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="online_duration" value="14日及更久"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">14日及更久</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 权限申请 -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">想申请的权限</label>
+                <div class="space-y-2">
+                    <label class="flex items-center">
+                        <input type="radio" name="permission" value="仅旁观" required
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">仅旁观</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="permission" value="仅生存"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">仅生存</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="permission" value="仅创造"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">仅创造</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="permission" value="创造者权限（OP2）"
+                               class="form-radio text-blue-500">
+                        <span class="ml-2">创造者权限（OP2）</span>
+                    </label>
+                </div>
+            </div>
+
+            {% if config.ENABLE_CLOUDFLARE %}
+            <div class="cf-turnstile" data-sitekey="{{ config.CLOUDFLARE_SITE_KEY }}"></div>
+            {% endif %}
+
+            <div class="flex justify-end">
+                <button type="submit" 
+                        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                    提交申请
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function submitApplication(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    const data = {};
+    
+    formData.forEach((value, key) => {
+        data[key] = value;
+    });
+
+    {% if config.ENABLE_CLOUDFLARE %}
+    const token = turnstile.getResponse();
+    if (!token) {
+        showToast('请完成人机验证', 'error');
+        return;
+    }
+    data.cf_token = token;
+    {% endif %}
+
+    fetch('{{ url_for("dashboard.submit_application", form_type="player") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('申请提交成功', 'success');
+            setTimeout(() => location.href = '{{ url_for("dashboard.applications") }}', 1500);
+        }
+    })
+    .catch(error => {
+        showToast('提交失败，请重试', 'error');
+        console.error('Error:', error);
+    });
+}
+
+// 监听账号类型变化
+document.querySelectorAll('input[name="game_account_type"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const getUuidBtn = document.getElementById('getUuidBtn');
+        const accountType = this.value;
+        getUuidBtn.disabled = !['微软登录', '离线登录'].includes(accountType);
+        if (['微软登录', '离线登录'].includes(accountType)){
+            getUuidBtn.textContent = '一键获取';
+        } else {
+            getUuidBtn.textContent = '该类型不可用';
+        }
+    });
+});
+
+function getPlayerUuid() {
+    const playerName = document.querySelector('input[name="player_name"]').value;
+    const accountType = document.querySelector('input[name="game_account_type"]:checked').value;
+    
+    if (!playerName) {
+        showToast('请输入玩家名', 'error');
+        return;
+    }
+    
+    // 转换账号类型
+    const typeMap = {
+        '微软登录': 'microsoft',
+        '离线登录': 'offline'
+    };
+    
+    // 禁用按钮，显示加载状态
+    const btn = document.getElementById('getUuidBtn');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '获取中...';
+    
+    fetch('/dashboard/get-uuid', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            player_name: playerName,
+            account_type: typeMap[accountType]
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            document.getElementById('playerUuid').value = data.uuid;
+            showToast('UUID获取成功', 'success');
+        }
+    })
+    .catch(error => {
+        showToast('获取UUID失败，请重试', 'error');
+    })
+    .finally(() => {
+        // 恢复按钮状态
+        btn.disabled = false;
+        btn.textContent = originalText;
+    });
+}
+</script>
+{% endblock %}

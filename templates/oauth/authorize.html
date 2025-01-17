@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}授权确认{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
+    <div class="relative py-3 sm:max-w-xl sm:mx-auto">
+        <div class="relative px-4 py-10 bg-white mx-8 md:mx-0 shadow rounded-3xl sm:p-10">
+            <div class="max-w-md mx-auto">
+                <div class="divide-y divide-gray-200">
+                    <div class="py-8 text-base leading-6 space-y-4 text-gray-700 sm:text-lg sm:leading-7">
+                        <div class="flex items-center space-x-4">
+                            {% if app.logo_url %}
+                            <img src="{{ app.logo_url }}" alt="{{ app.name }}" class="w-16 h-16 rounded-lg">
+                            {% endif %}
+                            <div>
+                                <h2 class="text-2xl font-bold text-gray-900">{{ app.name }}</h2>
+                                <p class="text-sm text-gray-500">请求获取以下权限：</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-50 rounded-lg p-4 mt-4">
+                            <ul class="list-disc list-inside space-y-2">
+                                {% for scope in scopes %}
+                                <li>{{ scope }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        
+                        <p class="text-sm text-gray-500 mt-4">
+                            授权后，该应用将能够：
+                        </p>
+                        <ul class="list-disc list-inside space-y-2 text-sm text-gray-600">
+                            <li>获取您的基本信息（用户名、邮箱等）</li>
+                            <li>代表您执行相关操作</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="pt-6 text-base leading-6 font-bold sm:text-lg sm:leading-7">
+                        <form method="post" action="{{ url_for('oauth.authorize') }}" class="space-y-4">
+                            <input type="hidden" name="client_id" value="{{ client_id }}">
+                            <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
+                            <input type="hidden" name="scope" value="{{ scope }}">
+                            <input type="hidden" name="state" value="{{ state }}">
+                            
+                            <div class="flex justify-end space-x-4">
+                                <button type="submit" name="action" value="deny"
+                                        class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                                    拒绝
+                                </button>
+                                <button type="submit" name="action" value="allow"
+                                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                                    授权
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,339 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}活动管理{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold">活动管理</h2>
+        <button onclick="showCreateModal()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+            创建活动
+        </button>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="min-w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">活动名称</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">参与人数</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for activity in activities %}
+                <tr>
+                    <td class="px-6 py-4">{{ activity.title }}</td>
+                    <td class="px-6 py-4">
+                        {% if activity.type == 'lucky_red_packet' %}
+                        拼手气红包
+                        {% elif activity.type == 'fixed_red_packet' %}
+                        固定红包
+                        {% else %}
+                        抽奖活动
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        {{ activity.start_time.strftime('%Y-%m-%d %H:%M') }} 至<br>
+                        {{ activity.end_time.strftime('%Y-%m-%d %H:%M') }}
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if activity.status == 'active' %}
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            进行中
+                        </span>
+                        {% else %}
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            已结束
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">{{ activity.participants|length }}</td>
+                    <td class="px-6 py-4">
+                        <button onclick="showParticipants('{{ activity.id }}')" class="text-blue-600 hover:text-blue-900">
+                            查看参与记录
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 创建活动弹窗 -->
+<div id="createModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg p-6 w-[800px]">
+        <h3 class="text-lg font-semibold mb-4">创建活动</h3>
+        <form id="activityForm" onsubmit="createActivity(event)" class="space-y-4">
+            <div>
+                <label class="block text-gray-700">活动标题</label>
+                <input type="text" name="title" class="w-full border rounded px-3 py-2" required>
+            </div>
+            <div>
+                <label class="block text-gray-700">活动类型</label>
+                <select name="type" class="w-full border rounded px-3 py-2" onchange="showTypeFields(this.value)" required>
+                    <option value="">请选择</option>
+                    <option value="lucky_red_packet">拼手气红包</option>
+                    <option value="fixed_red_packet">固定红包</option>
+                    <option value="lottery">抽奖活动</option>
+                </select>
+            </div>
+            
+            <!-- 拼手气红包字段 -->
+            <div id="luckyRedPacketFields" class="hidden space-y-4">
+                <div>
+                    <label class="block text-gray-700">总天际币</label>
+                    <input type="number" name="lucky_total_coins" class="w-full border rounded px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-gray-700">红包个数</label>
+                    <input type="number" name="lucky_count" class="w-full border rounded px-3 py-2">
+                </div>
+            </div>
+            
+            <!-- 固定红包字段 -->
+            <div id="fixedRedPacketFields" class="hidden space-y-4">
+                <div>
+                    <label class="block text-gray-700">每个红包天际币</label>
+                    <input type="number" name="fixed_coins" class="w-full border rounded px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-gray-700">红包个数</label>
+                    <input type="number" name="fixed_count" class="w-full border rounded px-3 py-2">
+                </div>
+            </div>
+            
+            <!-- 抽奖活动字段 -->
+            <div id="lotteryFields" class="hidden space-y-4">
+                <div>
+                    <label class="block text-gray-700">空奖个数</label>
+                    <input type="number" name="empty_count" class="w-full border rounded px-3 py-2" min="0" value="0">
+                </div>
+                <div id="prizeList" class="space-y-2">
+                    <!-- 奖品列表 -->
+                </div>
+                <button type="button" onclick="addPrize()" class="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded">
+                    添加奖品
+                </button>
+            </div>
+            
+            <div>
+                <label class="block text-gray-700">开始时间</label>
+                <input type="datetime-local" name="start_time" class="w-full border rounded px-3 py-2" required>
+            </div>
+            <div>
+                <label class="block text-gray-700">结束时间</label>
+                <input type="datetime-local" name="end_time" class="w-full border rounded px-3 py-2" required>
+            </div>
+            
+            <div class="flex justify-end space-x-2">
+                <button type="button" onclick="hideCreateModal()" 
+                        class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                    取消
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    创建
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 参与记录弹窗 -->
+<div id="participantsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg p-6 w-[800px] max-h-[80vh] flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">参与记录</h3>
+            <button onclick="hideParticipants()" class="text-gray-500 hover:text-gray-700">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        
+        <div class="overflow-auto flex-grow">
+            <table class="min-w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用户名</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">参与时间</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">获得奖励</th>
+                    </tr>
+                </thead>
+                <tbody id="participantsList" class="bg-white divide-y divide-gray-200">
+                    <!-- JavaScript 将在这里动态插入参与记录 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let prizeCount = 0;
+
+function showCreateModal() {
+    document.getElementById('createModal').classList.remove('hidden');
+}
+
+function hideCreateModal() {
+    document.getElementById('createModal').classList.add('hidden');
+}
+
+function showTypeFields(type) {
+    // 隐藏所有字段
+    document.getElementById('luckyRedPacketFields').classList.add('hidden');
+    document.getElementById('fixedRedPacketFields').classList.add('hidden');
+    document.getElementById('lotteryFields').classList.add('hidden');
+    
+    // 显示对应类型的字段
+    if (type === 'lucky_red_packet') {
+        document.getElementById('luckyRedPacketFields').classList.remove('hidden');
+    } else if (type === 'fixed_red_packet') {
+        document.getElementById('fixedRedPacketFields').classList.remove('hidden');
+    } else if (type === 'lottery') {
+        document.getElementById('lotteryFields').classList.remove('hidden');
+    }
+}
+
+function addPrize() {
+    const prizeList = document.getElementById('prizeList');
+    const div = document.createElement('div');
+    div.className = 'flex items-center space-x-2';
+    div.innerHTML = `
+        <select name="prizes[${prizeCount}][type]" onchange="togglePrizeFields(this)" class="border rounded px-3 py-2">
+            <option value="coins">天际币</option>
+            <option value="custom">自定义奖品</option>
+        </select>
+        <input type="number" name="prizes[${prizeCount}][amount]" class="border rounded px-3 py-2" placeholder="数量" min="1">
+        <input type="text" name="prizes[${prizeCount}][name]" class="border rounded px-3 py-2 hidden" placeholder="奖品名称">
+        <input type="number" name="prizes[${prizeCount}][count]" class="border rounded px-3 py-2" placeholder="个数" min="1">
+        <button type="button" onclick="this.parentElement.remove()" class="text-red-500">删除</button>
+    `;
+    prizeList.appendChild(div);
+    prizeCount++;
+}
+
+function togglePrizeFields(select) {
+    const parent = select.parentElement;
+    const amountInput = parent.querySelector('[name$="[amount]"]');
+    const nameInput = parent.querySelector('[name$="[name]"]');
+    
+    if (select.value === 'coins') {
+        amountInput.classList.remove('hidden');
+        nameInput.classList.add('hidden');
+    } else {
+        amountInput.classList.add('hidden');
+        nameInput.classList.remove('hidden');
+    }
+}
+
+function createActivity(event) {
+    event.preventDefault();
+    const form = event.target;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const formData = new FormData(form);
+    
+    // 禁用提交按钮
+    submitBtn.disabled = true;
+    submitBtn.textContent = '创建中...';
+    
+    // 处理奖品数据
+    if (form.type.value === 'lottery') {
+        const prizes = [];
+        document.querySelectorAll('#prizeList > div').forEach((div, index) => {
+            const type = div.querySelector('[name$="[type]"]').value;
+            const count = parseInt(div.querySelector('[name$="[count]"]').value);
+            
+            if (type === 'coins') {
+                const amount = parseInt(div.querySelector('[name$="[amount]"]').value);
+                prizes.push({ type, amount, count });
+            } else {
+                const name = div.querySelector('[name$="[name]"]').value;
+                prizes.push({ type: 'custom', name, count });
+            }
+        });
+        formData.set('prizes', JSON.stringify(prizes));
+    }
+    
+    fetch('{{ url_for("dashboard.create_activity") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('网络错误');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('活动创建成功', 'success');
+            setTimeout(() => {
+            location.reload();
+            }, 1500);
+        }
+    })
+    .catch(error => {
+        showToast(error.message || '创建失败，请重试', 'error');
+        console.error('Error:', error);
+    })
+    .finally(() => {
+        // 无论成功还是失败，都恢复按钮状态
+        submitBtn.disabled = false;
+        submitBtn.textContent = '创建';
+        setTimeout(() => {
+            location.reload();
+        }, 500);
+    });
+}
+
+function showParticipants(activityId) {
+    fetch(`/dashboard/activity-participants/${activityId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showToast(data.error, 'error');
+                return;
+            }
+            const tbody = document.getElementById('participantsList');
+            tbody.innerHTML = data.participants.map(p => `
+                <tr>
+                    <td class="px-6 py-4">${p.username}</td>
+                    <td class="px-6 py-4">${p.created_at}</td>
+                    <td class="px-6 py-4">
+                        ${formatReward(p.reward)}
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('participantsModal').classList.remove('hidden');
+        })
+        .catch(error => {
+            showToast('加载失败，请重试', 'error');
+            console.error('Error:', error);
+        });
+}
+
+function hideParticipants() {
+    document.getElementById('participantsModal').classList.add('hidden');
+}
+
+function formatReward(reward) {
+    if (!reward) return '未知';
+    if (reward.type === 'coins') {
+        return `${reward.amount} 天际币`;
+    } else if (reward.type === 'none') {
+        return '未中奖';
+    } else {
+        return reward.name;
+    }
+}
+</script>
+{% endblock %} 

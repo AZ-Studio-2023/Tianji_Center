@@ -1,0 +1,306 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}OAuth应用管理{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold">OAuth应用管理</h2>
+        <button onclick="showCreateModal()" 
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            创建应用
+        </button>
+    </div>
+
+    <!-- API 接口说明 -->
+    <div class="bg-gray-50 border-l-4 border-blue-400 p-6 rounded-lg">
+        <h3 class="text-lg font-semibold mb-4">OAuth2.0 接口说明</h3>
+        <div class="space-y-4">
+            <div>
+                <p class="font-medium">1. 授权端点：</p>
+                <code class="block bg-gray-100 p-2 rounded mt-1">
+                    GET {{ url_for('oauth.authorize', _external=True) }}
+                </code>
+                <p class="text-sm text-gray-600 mt-1">
+                    <strong>必需参数：</strong><br>
+                    - response_type=code<br>
+                    - client_id：应用的 Client ID<br>
+                    - redirect_uri：必须与注册的回调地址之一完全匹配<br>
+                    <strong>可选参数：</strong><br>
+                    - scope：权限范围，多个权限用空格分隔，如 "basic profile"<br>
+                    - state：随机字符串，用于防止 CSRF 攻击
+                </p>
+            </div>
+            <div>
+                <p class="font-medium">2. 令牌端点：</p>
+                <code class="block bg-gray-100 p-2 rounded mt-1">
+                    POST {{ url_for('oauth.token', _external=True) }}
+                </code>
+                <p class="text-sm text-gray-600 mt-1">
+                    <strong>授权码模式（grant_type=authorization_code）：</strong><br>
+                    - grant_type=authorization_code<br>
+                    - code：授权码<br>
+                    - client_id：应用的 Client ID<br>
+                    - client_secret：应用的 Client Secret<br>
+                    - redirect_uri：必须与获取授权码时使用的完全一致<br>
+                    <strong>刷新令牌（grant_type=refresh_token）：</strong><br>
+                    - grant_type=refresh_token<br>
+                    - refresh_token：之前获取的刷新令牌<br>
+                    - client_id：应用的 Client ID<br>
+                    - client_secret：应用的 Client Secret
+                </p>
+            </div>
+            <div>
+                <p class="font-medium">3. 返回数据格式：</p>
+                <div class="text-sm text-gray-600 mt-1">
+                    <strong>成功响应：</strong>
+                    <pre class="bg-gray-100 p-2 rounded mt-1">
+{
+    "access_token": "访问令牌",
+    "token_type": "Bearer",
+    "expires_in": 86400,
+    "refresh_token": "刷新令牌",
+    "scope": "授权范围"
+}
+                    </pre>
+                    <strong>错误响应：</strong>
+                    <pre class="bg-gray-100 p-2 rounded mt-1">
+{
+    "error": "错误代码",
+    "error_description": "错误描述"
+}
+                    </pre>
+                </div>
+            </div>
+            <div>
+                <p class="font-medium">4. 使用访问令牌：</p>
+                <p class="text-sm text-gray-600 mt-1">
+                    在请求头中添加：<br>
+                    <code>Authorization: Bearer YOUR_ACCESS_TOKEN</code>
+                </p>
+            </div>
+            <div>
+                <p class="font-medium">5. 标准错误代码：</p>
+                <ul class="list-disc list-inside text-sm text-gray-600 mt-1">
+                    <li>invalid_request - 请求缺少必需参数或参数无效</li>
+                    <li>invalid_client - 客户端认证失败</li>
+                    <li>invalid_grant - 授权码或刷新令牌无效</li>
+                    <li>unauthorized_client - 客户端未被授权使用此授权类型</li>
+                    <li>unsupported_grant_type - 不支持的授权类型</li>
+                    <li>invalid_scope - 请求的权限范围无效</li>
+                    <li>access_denied - 用户拒绝授权</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 应用列表 -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="min-w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">应用名称</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for app in oauth_apps %}
+                <tr>
+                    <td class="px-6 py-4">{{ app.name }}</td>
+                    <td class="px-6 py-4 font-mono">{{ app.client_id }}</td>
+                    <td class="px-6 py-4">{{ app.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td class="px-6 py-4 space-x-2">
+                        <button onclick="viewApp({{ app.id }})"
+                                class="text-blue-600 hover:text-blue-800">
+                            查看
+                        </button>
+                        <button onclick="regenerateSecret({{ app.id }})"
+                                class="text-yellow-600 hover:text-yellow-800">
+                            重置密钥
+                        </button>
+                        <button onclick="deleteApp({{ app.id }})"
+                                class="text-red-600 hover:text-red-800">
+                            删除
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 创建应用的模态框 -->
+<div id="createModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 hidden">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg w-full max-w-2xl">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold">创建OAuth应用</h3>
+                    <button onclick="closeModal('createModal')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <form onsubmit="createApp(event)" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">应用名称</label>
+                    <input type="text" name="name" required
+                           class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">应用描述</label>
+                    <textarea name="description" rows="3" required
+                              class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">回调地址（多个地址用逗号分隔）</label>
+                    <textarea name="redirect_uris" rows="2" required
+                              class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3"
+                              placeholder="https://example.com/callback"></textarea>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('createModal')"
+                            class="px-4 py-2 border rounded-md hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        创建
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 查看应用详情的模态框 -->
+<div id="viewModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 hidden">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg w-full max-w-2xl">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold">应用详情</h3>
+                    <button onclick="closeModal('viewModal')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6 space-y-4">
+                <div id="appDetails">
+                    <!-- 动态加载应用详情 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showCreateModal() {
+    document.getElementById('createModal').classList.remove('hidden');
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.add('hidden');
+}
+
+function createApp(event) {
+    event.preventDefault();
+    const form = event.target;
+    const data = {
+        name: form.name.value,
+        description: form.description.value,
+        redirect_uris: form.redirect_uris.value
+    };
+    
+    fetch('/dashboard/oauth/create-app', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('应用创建成功', 'success');
+            setTimeout(() => location.reload(), 1500);
+        }
+    });
+}
+
+function viewApp(id) {
+    fetch(`/dashboard/oauth/app/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('appDetails').innerHTML = formatAppDetails(data);
+            document.getElementById('viewModal').classList.remove('hidden');
+        });
+}
+
+function formatAppDetails(data) {
+    return `
+        <div class="space-y-4">
+            <div>
+                <div class="text-sm font-medium text-gray-500">应用名称</div>
+                <div class="mt-1">${data.name}</div>
+            </div>
+            <div>
+                <div class="text-sm font-medium text-gray-500">应用描述</div>
+                <div class="mt-1">${data.description}</div>
+            </div>
+            <div>
+                <div class="text-sm font-medium text-gray-500">Client ID</div>
+                <div class="mt-1 font-mono">${data.client_id}</div>
+            </div>
+            <div>
+                <div class="text-sm font-medium text-gray-500">Client Secret</div>
+                <div class="mt-1 font-mono">${data.client_secret}</div>
+            </div>
+            <div>
+                <div class="text-sm font-medium text-gray-500">回调地址</div>
+                <div class="mt-1">${data.redirect_uris.split(',').join('<br>')}</div>
+            </div>
+        </div>
+    `;
+}
+
+function regenerateSecret(id) {
+    if (!confirm('确定要重置密钥吗？这将使当前的密钥失效。')) return;
+    
+    fetch(`/dashboard/oauth/regenerate-secret/${id}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('密钥已重置', 'success');
+            setTimeout(() => location.reload(), 1500);
+        }
+    });
+}
+
+function deleteApp(id) {
+    if (!confirm('确定要删除此应用吗？此操作不可恢复。')) return;
+    
+    fetch(`/dashboard/oauth/delete-app/${id}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('应用已删除', 'success');
+            setTimeout(() => location.reload(), 1500);
+        }
+    });
+}
+</script>
+{% endblock %} 

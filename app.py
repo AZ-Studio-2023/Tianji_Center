@@ -1,0 +1,85 @@
+from flask import Flask, redirect, url_for
+from config.config import Config
+from extensions import db, mail, login_manager
+from models.user import User
+from models.oauth import OAuthApp, OAuthCode, OAuthToken
+import pymysql
+from flask_migrate import Migrate
+from flask_login import current_user
+from datetime import datetime
+import pytz
+from flask_babel import Babel
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from models.user import schedule_auto_review
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(Config)
+
+    # 初始化扩展
+    db.init_app(app)
+    mail.init_app(app)
+    login_manager.init_app(app)
+    migrate = Migrate(app, db)
+    babel = Babel(app)
+    
+    # 配置 login_manager
+    login_manager.login_view = 'auth.login'
+    login_manager.login_message = '请先登录'
+    
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+    
+    with app.app_context():
+        db.create_all()
+
+    # 注册蓝图
+    from routes.auth import auth_bp
+    from routes.dashboard import dashboard_bp
+    from routes.oauth import oauth_bp
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+    app.register_blueprint(oauth_bp, url_prefix='/oauth')
+
+    @app.route('/')
+    def index():
+        if current_user.is_authenticated:
+            return redirect(url_for('dashboard.index'))
+        return redirect(url_for('auth.login'))
+
+    # 设置默认时区
+    @app.template_filter('datetime')
+    def format_datetime(value, format='%Y-%m-%d %H:%M'):
+        if value is None:
+            return ''
+        # 确保时间有时区信息
+        if value.tzinfo is None:
+            value = pytz.timezone(app.config['TIMEZONE']).localize(value)
+        return value.strftime(format)
+
+    # 创建定时任务调度器
+    scheduler = BackgroundScheduler()
+    
+    # 添加自动审核任务（每周六中午12点）
+    scheduler.add_job(
+        lambda: schedule_auto_review(app.config['MCRCON_HOST'], app.config['MCRCON_PASSWORD'], app.config['MCRCON_PORT']),
+        trigger=CronTrigger(
+            day_of_week='sat',
+            hour=12,
+            minute=0,
+            timezone='Asia/Shanghai'
+        ),
+        id='auto_review',
+        replace_existing=True
+    )
+    
+    # 启动调度器
+    scheduler.start()
+
+    return app
+
+app = create_app()
+
+if __name__ == '__main__':
+    app.run(debug=True) 

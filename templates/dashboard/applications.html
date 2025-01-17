@@ -1,0 +1,162 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}我的申请{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold">我的申请</h2>
+    </div>
+
+    <!-- 申请记录 -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="min-w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">申请类型</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">提交时间</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">备注</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for application in applications %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {{ application.type_name }}申请
+                    </td>
+                    <td class="px-6 py-4">{{ application.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td class="px-6 py-4">
+                        {% if application.status == 'pending' %}
+                        <span class="px-2 py-1 text-yellow-800 bg-yellow-100 rounded-full text-sm">待审核</span>
+                        {% elif application.status == 'approved' %}
+                        <span class="px-2 py-1 text-green-800 bg-green-100 rounded-full text-sm">已通过</span>
+                        {% else %}
+                        <span class="px-2 py-1 text-red-800 bg-red-100 rounded-full text-sm">未通过</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">{{ application.remark or '' }}</td>
+                    <td class="px-6 py-4 space-x-2">
+                        <button onclick="viewApplication({{ application.id }})"
+                                class="text-blue-600 hover:text-blue-800">
+                            查看
+                        </button>
+                        {% if application.form_type == 'player' and application.status == 'pending' and application.remark == None %}
+                        &nbsp;
+                        <button onclick="quickReview({{ application.id }})"
+                                class="text-blue-600 hover:text-blue-800">
+                            快速审核(30天际币)
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 添加申请详情模态框 -->
+<div id="viewModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center pb-3">
+            <h3 class="text-xl font-bold">申请详情</h3>
+            <button onclick="closeModal('viewModal')" class="text-gray-400 hover:text-gray-500">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="applicationDetails" class="mt-4 space-y-4">
+            <!-- 申请详情将通过JavaScript动态填充 -->
+        </div>
+        <div class="mt-6 flex justify-end">
+            <button onclick="closeModal('viewModal')"
+                    class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">
+                关闭
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 添加JavaScript函数 -->
+<script>
+function viewApplication(id) {
+    fetch(`/dashboard/application/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('applicationDetails').innerHTML = formatApplicationDetails(data);
+            document.getElementById('viewModal').classList.remove('hidden');
+        });
+}
+
+function formatApplicationDetails(data) {
+    let html = `
+        <div class="grid grid-cols-1 gap-4">
+            <div>
+                <div class="text-sm font-medium text-gray-500">申请类型</div>
+                <div class="mt-1">${data.type}</div>
+            </div>
+            <div>
+                <div class="text-sm font-medium text-gray-500">提交时间</div>
+                <div class="mt-1">${data.created_at}</div>
+            </div>
+            <div>
+                <div class="text-sm font-medium text-gray-500">状态</div>
+                <div class="mt-1">${formatStatus(data.status)}</div>
+            </div>
+            <div>
+                <div class="text-sm font-medium text-gray-500">申请内容</div>
+                <div class="mt-1 space-y-2">
+    `;
+    
+    // 遍历申请内容
+    for (const [key, value] of Object.entries(data.content)) {
+        html += `
+            <div class="grid grid-cols-3 gap-4">
+                <div class="font-medium">${key}:</div>
+                <div class="col-span-2">${value}</div>
+            </div>
+        `;
+    }
+    
+    html += `
+                </div>
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+function formatStatus(status) {
+    const statusMap = {
+        'pending': '<span class="px-2 py-1 text-yellow-800 bg-yellow-100 rounded-full text-sm">待审核</span>',
+        'approved': '<span class="px-2 py-1 text-green-800 bg-green-100 rounded-full text-sm">已通过</span>',
+        'rejected': '<span class="px-2 py-1 text-red-800 bg-red-100 rounded-full text-sm">未通过</span>'
+    };
+    return statusMap[status] || status;
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.add('hidden');
+}
+
+function quickReview(id) {
+    if (!confirm('确定要花费30天际币进行快速审核吗？')) return;
+    
+    fetch(`/dashboard/quick-review/${id}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast(data.message, 'success');
+            setTimeout(() => location.reload(), 1500);
+        }
+    });
+}
+</script>
+
+{% endblock %} 
