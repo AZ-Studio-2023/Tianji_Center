@@ -33,12 +33,6 @@
                     </div>
                 </div>
 
-                {% if config.ENABLE_CLOUDFLARE %}
-                <div class="flex justify-center">
-                    <div class="cf-turnstile" data-sitekey="{{ config.CF_SITE_KEY }}"></div>
-                </div>
-                {% endif %}
-
                 <div>
                     <button type="submit"
                             class="w-full inline-flex items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
@@ -94,8 +88,7 @@ function handleSubmit(event) {
     const formData = new FormData(event.target);
     const data = {
         email: formData.get('email'),
-        password: formData.get('password'),
-        'cf-turnstile-response': formData.get('cf-turnstile-response')
+        password: formData.get('password')
     };
     
     fetch('{{ url_for("auth.login") }}', {

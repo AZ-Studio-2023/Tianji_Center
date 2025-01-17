@@ -68,12 +68,7 @@ def login():
         data = request.get_json()
         email = data.get('email')
         password = data.get('password')
-        cf_token = data.get('cf-turnstile-response')
-        
-        # 验证Cloudflare人机验证
-        if current_app.config['ENABLE_CLOUDFLARE'] and not verify_cloudflare(cf_token):
-            return jsonify({'error': '人机验证失败'})
-            
+
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
             # 登录成功处理
