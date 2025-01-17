@@ -15,7 +15,6 @@ def register():
         return redirect(url_for('dashboard.index'))
         
     if request.method == 'POST':
-        # 修改：从 JSON 中获取数据
         data = request.get_json()
         email = data.get('email')
         username = data.get('username')
@@ -44,7 +43,7 @@ def register():
             user = User(
                 email=email, 
                 username=username,
-                avatar_type='gravatar'  # 设置默认头像类型
+                avatar_type='cravatar'  # 设置默认头像类型
             )
             user.set_password(password)
             
@@ -66,7 +65,6 @@ def login():
         return redirect(url_for('dashboard.index'))
         
     if request.method == 'POST':
-        # 修改：从 JSON 中获取数据，而不是 form
         data = request.get_json()
         email = data.get('email')
         password = data.get('password')
@@ -99,7 +97,7 @@ def send_code():
     try:
         # 发送邮件
         msg = Message(
-            '验证码 - 天际中心',
+            '验证码 - Tianji Center',
             sender=current_app.config['MAIL_USERNAME'],
             recipients=[email]
         )

@@ -507,7 +507,7 @@ def profile():
         if action == 'update_avatar':
             avatar_type = request.form.get('avatar_type')
             try:
-                if avatar_type in ['gravatar', 'qq']:
+                if avatar_type in ['cravatar', 'qq']:
                     # 验证是否有QQ头像
                     if avatar_type == 'qq' and not current_user.qq_avatar:
                         return jsonify({'error': '未绑定QQ账号或无QQ头像'})
@@ -576,8 +576,9 @@ def profile():
 def change_password():
     if request.method == 'POST':
         email = current_user.email
-        code = request.form.get('code')
-        new_password = request.form.get('new_password')
+        data = request.get_json()
+        code = data.get('code')
+        new_password = data.get('new_password')
         
         if not verify_email_code(email, code):
             return jsonify({'error': '验证码错误'})
@@ -920,6 +921,15 @@ def review_application():
         application.remark = remark
         application.reviewed_at = get_current_time()
         application.reviewer_id = current_user.id
+
+        user = User.query.filter_by(id=application.user_id).first()
+        if status == "approved":
+            if application.content['permission'] == '创造者权限（OP2）' and user.role != 'admin':
+                user.role = 'creator'
+            elif application.content['permission'] == '仅旁观' and user.role != 'admin' and user.role != 'creator' and user.role != 'player':
+                user.role = 'visitor'
+            elif application.content['permission'] == '仅生存' or application.content['permission'] == '仅创造' and user.role != 'admin' and user.role != 'creator':
+                user.role = 'player'
         db.session.commit()
         
         return jsonify({'message': '审核成功'})
@@ -1073,7 +1083,13 @@ def quick_review(id):
         application.remark = notes
         application.reviewed_at = datetime.now(pytz.timezone('Asia/Shanghai'))
         application.reviewer_id = None  # 自动审核
-        
+        if passed == True:
+            if application.content['permission'] == '创造者权限（OP2）' and current_user.role != 'admin':
+                current_user.role = 'creator'
+            elif application.content['permission'] == '仅旁观' and current_user.role != 'admin' and current_user.role != 'creator' and current_user.role != 'player':
+                current_user.role = 'visitor'
+            elif application.content['permission'] == '仅生存' or application.content['permission'] == '仅创造' and current_user.role != 'admin' and current_user.role != 'creator':
+                current_user.role = 'player'
         db.session.commit()
         
         return jsonify({

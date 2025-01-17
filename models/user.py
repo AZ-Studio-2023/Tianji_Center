@@ -30,8 +30,8 @@ class User(UserMixin, db.Model):
     github_id = db.Column(db.String(50), unique=True)
     microsoft_id = db.Column(db.String(50), unique=True)
     
-    # 头像类型：gravatar, qq
-    avatar_type = db.Column(db.String(20), default='gravatar')
+    # 头像类型：cravatar, qq
+    avatar_type = db.Column(db.String(20), default='cravatar')
     
     # 关联
     applications = db.relationship('Application', backref='user', lazy=True)
@@ -68,17 +68,17 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
         
-    def get_gravatar_url(self):
+    def get_cravatar_url(self):
         import hashlib
         email_hash = hashlib.md5(self.email.lower().encode()).hexdigest()
-        return f"https://www.gravatar.com/avatar/{email_hash}?d=identicon"
+        return f"https://cravatar.cn/avatar/{email_hash}?d=identicon"
         
     @property
     def avatar_url(self):
         if self.avatar_type == 'qq' and self.qq_avatar:
             return self.qq_avatar
         else:
-            return self.get_gravatar_url()
+            return self.get_cravatar_url()
 
 class Application(db.Model):
     __tablename__ = 'applications'
@@ -272,7 +272,14 @@ def schedule_auto_review(host, password, port):
         app.remark = notes
         app.reviewed_at = datetime.now(pytz.timezone('Asia/Shanghai'))
         app.reviewer_id = None  # 自动审核
-    
+        user = User.query.filter_by(id=app.user_id).first()
+        if passed == True:
+            if app.content['permission'] == '创造者权限（OP2）' and user.role != 'admin':
+                user.role = 'creator'
+            elif app.content['permission'] == '仅旁观' and user.role != 'admin' and user.role != 'creator' and user.role != 'player':
+                user.role = 'visitor'
+            elif app.content['permission'] == '仅生存' or app.content['permission'] == '仅创造' and user.role != 'admin' and user.role != 'creator':
+                user.role = 'player'
     try:
         db.session.commit()
     except Exception as e:

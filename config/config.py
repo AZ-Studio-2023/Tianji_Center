@@ -11,7 +11,7 @@ class Config:
     # MySQL配置
     MYSQL_HOST = os.getenv('MYSQL_HOST')
     MYSQL_USER = os.getenv('MYSQL_USER')
-    MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', '')  # 原始密码，用于pymysql直接连接
+    MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', '')  
     MYSQL_DB = os.getenv('MYSQL_DB')
     
     # SQLAlchemy配置
