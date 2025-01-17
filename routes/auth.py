@@ -229,96 +229,79 @@ def oauth_callback(provider):
             }
             return redirect(url_for('auth.bind_account'))
         elif provider == 'github':
-            user_info = github_oauth.get_user_info(code)
-            social_id = user_info['social_uid']
-            user = User.query.filter_by(github_id=social_id).first()
-            if not user:
-                user = current_user if current_user.is_authenticated else User()
-                user.github_id = social_id
+            try:
+                user_info = github_oauth.get_user_info(code)
+                # 检查是否已有用户绑定了该GitHub账号
+                existing_user = User.query.filter_by(github_id=user_info['social_uid']).first()
+                if existing_user:
+                    login_user(existing_user)
+                    return redirect(url_for('dashboard.index'))
+                    
+                # 如果当前用户已登录，则绑定账号
+                if current_user.is_authenticated:
+                    current_user.github_id = user_info['social_uid']
+                    # 首次绑定奖励
+                    if not current_user.github_reward:
+                        current_user.coins += 15
+                        current_user.github_reward = True
+                        db.session.add(CoinRecord(
+                            user_id=current_user.id,
+                            amount=15,
+                            reason='绑定GitHub账号奖励'
+                        ))
+                    db.session.commit()
+                    return redirect(url_for('dashboard.oauth_accounts'))
+                    
+                # 存储OAuth信息用于后续绑定
+                session['oauth_info'] = {
+                    'provider': 'Github',
+                    'social_uid': user_info['social_uid'],
+                    'nickname': user_info['nickname'],
+                    'avatar_url': user_info['faceimg']
+                }
+                return redirect(url_for('auth.bind_account'))
+            except Exception as e:
+                current_app.logger.error(f'GitHub OAuth回调错误: {str(e)}')
+                return jsonify({'error': 'GitHub登录失败，请重试'})
 
         elif provider == 'microsoft':
-            user_info = microsoft_oauth.get_user_info(code)
-            social_id = user_info['social_uid']
-            user = User.query.filter_by(microsoft_id=social_id).first()
-            if not user:
-                user = current_user if current_user.is_authenticated else User()
-                user.microsoft_id = social_id
+            try:
+                user_info = microsoft_oauth.get_user_info(code)
+                # 检查是否已有用户绑定了该微软账号
+                existing_user = User.query.filter_by(microsoft_id=user_info['social_uid']).first()
+                if existing_user:
+                    login_user(existing_user)
+                    return redirect(url_for('dashboard.index'))
+                    
+                # 如果当前用户已登录，则绑定账号
+                if current_user.is_authenticated:
+                    current_user.microsoft_id = user_info['social_uid']
+                    # 首次绑定奖励
+                    if not current_user.microsoft_reward:
+                        current_user.coins += 15
+                        current_user.microsoft_reward = True
+                        db.session.add(CoinRecord(
+                            user_id=current_user.id,
+                            amount=15,
+                            reason='绑定微软账号奖励'
+                        ))
+                    db.session.commit()
+                    return redirect(url_for('dashboard.oauth_accounts'))
+                    
+                # 存储OAuth信息用于后续绑定
+                session['oauth_info'] = {
+                    'provider': '微软',
+                    'social_uid': user_info['social_uid'],
+                    'nickname': user_info['nickname'],
+                    'avatar_url': user_info['faceimg']
+                }
+                return redirect(url_for('auth.bind_account'))
+            except Exception as e:
+                current_app.logger.error(f'微软OAuth回调错误: {str(e)}')
+                return jsonify({'error': '微软登录失败，请重试'})
 
         else:
             return '不支持的登录方式'
-            
-        # 设置提供商显示名称
-        provider_name = {
-            'qq': 'QQ',
-            'wechat': '微信',
-            'github': 'Github',
-            'microsoft': '微软'
-        }.get(provider)
-        
-        # 检查是否已经绑定
-        existing_user = None
-        if provider == 'qq':
-            existing_user = User.query.filter_by(qq_id=user_info['social_uid']).first()
-        elif provider == 'wechat':
-            existing_user = User.query.filter_by(wechat_id=user_info['social_uid']).first()
-        elif provider == 'github':
-            existing_user = User.query.filter_by(github_id=user_info['social_uid']).first()
-        elif provider == 'microsoft':
-            existing_user = User.query.filter_by(microsoft_id=user_info['social_uid']).first()
-            
-        if existing_user:
-            if current_user.is_authenticated and current_user.id != existing_user.id:
-                # 如果当前用户已登录，但该第三方账号已绑定到其他账号
-                flash(f'该{provider_name}账号已被其他账号绑定', 'error')
-                return redirect(url_for('dashboard.oauth_accounts'))
-            # 如果未登录，则登录已绑定的账号
-            login_user(existing_user)
-            return redirect(url_for('dashboard.index'))
-            
-        # 如果当前用户已登录，直接绑定
-        if current_user.is_authenticated:
-            try:
-                # 检查是否已经获得过该平台的绑定奖励
-                reward_key = f'{provider}_reward'
-                if not getattr(current_user, reward_key, False):
-                    # 添加15个天际币奖励
-                    current_user.coins += 15
-                    # 记录天际币变动
-                    record = CoinRecord(
-                        user_id=current_user.id,
-                        amount=15,
-                        reason=f'绑定{provider_name}账号奖励'
-                    )
-                    db.session.add(record)
-                    # 标记已获得奖励
-                    setattr(current_user, reward_key, True)
-                
-                if provider == 'qq':
-                    current_user.qq_id = user_info['social_uid']
-                elif provider == 'wechat':
-                    current_user.wechat_id = user_info['social_uid']
-                elif provider == 'github':
-                    current_user.github_id = user_info['social_uid']
-                elif provider == 'microsoft':
-                    current_user.microsoft_id = user_info['social_uid']
-                    
-                db.session.commit()
-                flash(f'{provider_name}账号绑定成功，获得15天际币奖励', 'success')
-                return redirect(url_for('dashboard.oauth_accounts'))
-            except Exception as e:
-                db.session.rollback()
-                flash(f'绑定失败：{str(e)}', 'error')
-                return redirect(url_for('dashboard.oauth_accounts'))
-        
-        # 未登录用户，存储OAuth信息到session，跳转到绑定页面
-        session['oauth_info'] = {
-            'provider': provider_name,
-            'social_uid': user_info['social_uid'],
-            'nickname': user_info['nickname'],
-            'avatar': user_info['faceimg']
-        }
-        return redirect(url_for('auth.bind_account'))
-            
     except Exception as e:
         flash(f'授权失败：{str(e)}', 'error')
         return redirect(url_for('auth.login'))
