@@ -68,7 +68,6 @@ def login():
         data = request.get_json()
         email = data.get('email')
         password = data.get('password')
-
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
             # 登录成功处理
