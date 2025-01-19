@@ -5,7 +5,7 @@ import hmac
 def verify_geetest(data):
     if not data:
         return False
-    api_server = 'http://gcaptcha4.geetest.com'
+    api_server = 'https://gcaptcha4.geetest.com'
     lot_number = data["lot_number"]
     captcha_output = data["captcha_output"]
     pass_token = data["pass_token"]
@@ -23,11 +23,9 @@ def verify_geetest(data):
         "gen_time": gen_time,
         "sign_token": sign_token,
     }
-    print(query)
     url = api_server + '/validate' + '?captcha_id={}'.format(captcha_id)
     try:
         response = requests.post(url, query)
-        print(response.json())
     except requests.RequestException:
         return False
     try:
