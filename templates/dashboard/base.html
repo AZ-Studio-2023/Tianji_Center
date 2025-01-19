@@ -7,8 +7,8 @@
     <link href="https://gcore.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="{{ url_for('static', filename='js/toast.js') }}"></script>
     <link rel="shortcut icon" href="{{ url_for('static', filename='image/favicon.ico') }}">
-    {% if config.ENABLE_CLOUDFLARE %}
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    {% if config.ENABLE_GEETEST %}
+    <script src="{{ url_for('static', filename='js/gt4.js') }}"></script>
     {% endif %}
 </head>
 <body class="bg-gray-100">

@@ -153,11 +153,11 @@ class MicrosoftOAuth:
                 'client_id': current_app.config['MICROSOFT_CLIENT_ID'],
                 'client_secret': current_app.config['MICROSOFT_CLIENT_SECRET'],
                 'code': code,
-                'redirect_uri': url_for('auth.oauth_callback', provider='microsoft', _external=True),
+                'redirect_uri': url_for('auth.oauth_callback', provider='microsoft', _external=True).replace('http://', 'https://'),
                 'grant_type': 'authorization_code'
             }
         )
-        access_token = token_response.json()['access_token']
+        access_token = token_response.json()["access_token"]
         
         # 2. 获取用户信息
         user_response = requests.get(
@@ -169,11 +169,10 @@ class MicrosoftOAuth:
         )
         user_info = user_response.json()
         
-        # 3. 转换为统一格式
         return {
             'social_uid': user_info['id'],
             'nickname': user_info['displayName'],
-            'faceimg': f"https://graph.microsoft.com/v1.0/me/photo/$value"  # 需要单独请求
+            'faceimg': f"https://graph.microsoft.com/v1.0/me/photo/$value"  
         }
 
     def get_user_info_by_id(self, user_id):

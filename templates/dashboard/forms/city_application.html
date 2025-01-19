@@ -84,8 +84,8 @@
                 <p class="mt-1 text-sm text-gray-500">请将图片上传至第三方图床，把图片链接填写在此</p>
             </div>
 
-            {% if config.ENABLE_CLOUDFLARE %}
-            <div class="cf-turnstile" data-sitekey="{{ config.CLOUDFLARE_SITE_KEY }}"></div>
+            {% if config.ENABLE_GEETEST %}
+            <div id="captcha"></div>
             {% endif %}
 
             <div class="flex justify-end">
@@ -121,11 +121,25 @@ function addDistrict() {
 function removeDistrict(button) {
     button.parentElement.remove();
 }
-
+{% if config.ENABLE_GEETEST %}    
+initGeetest4({
+    captchaId: '{{ config.GEETEST_ID }}'
+},function (captcha) {
+    gt = captcha
+    captcha.appendTo("#captcha");
+});
+{% endif %}
 function submitApplication(event) {
     event.preventDefault();
     const form = event.target;
+    {% if config.ENABLE_GEETEST %}  
+    const result = gt.getValidate();
+    if (!result) {
+        return showToast("请先完成行为验证", "error")
+    }
+    {% endif %}
     const formData = new FormData(form);
+    {% if not config.ENABLE_GEETEST %}  
     const data = {};
     
     // 特殊处理区县数组
@@ -149,8 +163,36 @@ function submitApplication(event) {
     });
     
     data.districts = districts;
+    {% endif %}
+    {% if not config.ENABLE_GEETEST %}  
+    const base_data = {};
+    
+    // 特殊处理区县数组
+    const districts = [];
+    const districtsCn = formData.getAll('district_cn[]');
+    const districtsEn = formData.getAll('district_en[]');
+    
+    for (let i = 0; i < districtsCn.length; i++) {
+        if (districtsCn[i].trim() && districtsEn[i].trim()) {
+            districts.push({
+                cn: districtsCn[i].trim(),
+                en: districtsEn[i].trim()
+            });
+        }
+    }
+    
+    formData.forEach((value, key) => {
+        if (!key.endsWith('[]')) {
+            base_data[key] = value;
+        }
+    });
+    
+    base_data.districts = districts;
+    const data =  { ...result, ...base_data};
+    {% endif %}
 
-    {% if config.ENABLE_CLOUDFLARE %}
+
+    {% if config.ENABLE_GEETEST %}
     const token = turnstile.getResponse();
     if (!token) {
         showToast('请完成人机验证', 'error');
@@ -158,7 +200,9 @@ function submitApplication(event) {
     }
     data.cf_token = token;
     {% endif %}
-
+    // 禁用按钮，改名请稍后
+    document.querySelector('button[type="submit"]').disabled = true;
+    document.querySelector('button[type="submit"]').textContent = '请稍后';
     fetch('{{ url_for("dashboard.submit_application", form_type="city") }}', {
         method: 'POST',
         headers: {
@@ -170,6 +214,8 @@ function submitApplication(event) {
     .then(data => {
         if (data.error) {
             showToast(data.error, 'error');
+            document.querySelector('button[type="submit"]').disabled = false;
+            document.querySelector('button[type="submit"]').textContent = '提交申请';
         } else {
             showToast('申请提交成功', 'success');
             setTimeout(() => location.href = '{{ url_for("dashboard.applications") }}', 1500);
@@ -178,6 +224,8 @@ function submitApplication(event) {
     .catch(error => {
         showToast('提交失败，请重试', 'error');
         console.error('Error:', error);
+        document.querySelector('button[type="submit"]').disabled = false;
+        document.querySelector('button[type="submit"]').textContent = '提交申请';
     });
 }
 </script>

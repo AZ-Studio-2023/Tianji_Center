@@ -3,7 +3,7 @@ from models.user import User, CoinRecord
 from extensions import db, mail
 from utils.email import generate_email_code, save_email_code, verify_email_code
 from utils.oauth import qq_oauth, wechat_oauth, github_oauth, microsoft_oauth
-from utils.cloudflare import verify_cloudflare
+from utils.geetest import verify_geetest
 from flask_login import login_user, login_required, current_user, logout_user
 from flask_mail import Message
 
@@ -20,10 +20,9 @@ def register():
         username = data.get('username')
         password = data.get('password')
         code = data.get('code')
-        cf_token = data.get('cf-turnstile-response')
         
-        # 验证Cloudflare人机验证
-        if current_app.config['ENABLE_CLOUDFLARE'] and not verify_cloudflare(cf_token):
+        # 验证人机验证
+        if current_app.config['ENABLE_GEETEST'] and not verify_geetest(data):
             return jsonify({'error': '人机验证失败'})
             
         # 验证邮箱验证码
@@ -68,6 +67,9 @@ def login():
         data = request.get_json()
         email = data.get('email')
         password = data.get('password')
+        # 验证人机验证
+        if current_app.config['ENABLE_GEETEST'] and not verify_geetest(data):
+            return jsonify({'error': '人机验证失败'})
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
             # 登录成功处理
@@ -306,12 +308,12 @@ def bind_account():
         return redirect(url_for('auth.login'))
         
     if request.method == 'POST':
+        data = request.get_json()
         email = request.form.get('email')
         password = request.form.get('password')
-        cf_token = request.form.get('cf-turnstile-response')
         
-        # 验证Cloudflare人机验证
-        if current_app.config['ENABLE_CLOUDFLARE'] and not verify_cloudflare(cf_token):
+        # 验证人机验证
+        if current_app.config['ENABLE_GEETEST'] and not verify_geetest(data):
             return jsonify({'error': '人机验证失败'})
         
         user = User.query.filter_by(email=email).first()
@@ -356,36 +358,6 @@ def bind_account():
         
     return render_template('auth/bind_account.html')
 
-
-@auth_bp.route('/update-avatar', methods=['POST'])
-@login_required
-def update_avatar():
-    provider = request.json.get('provider')
-    if not provider:
-        return jsonify({'error': '参数错误'})
-        
-    try:
-        if provider == 'qq' and current_user.qq_id:
-            # 获取QQ头像
-            user_info = qq_oauth.get_user_info_by_id(current_user.qq_id)
-            current_user.avatar_url = user_info['faceimg']
-        elif provider == 'wechat' and current_user.wechat_id:
-            # 获取微信头像
-            user_info = wechat_oauth.get_user_info_by_id(current_user.wechat_id)
-            current_user.avatar_url = user_info['faceimg']
-        elif provider == 'github' and current_user.github_id:
-            # 获取GitHub头像
-            user_info = github_oauth.get_user_info_by_id(current_user.github_id)
-            current_user.avatar_url = user_info['faceimg']
-        elif provider == 'microsoft' and current_user.microsoft_id:
-            # 获取Microsoft头像
-            user_info = microsoft_oauth.get_user_info_by_id(current_user.microsoft_id)
-            current_user.avatar_url = user_info['faceimg']
-            
-        db.session.commit()
-        return jsonify({'message': '更新成功'})
-    except Exception as e:
-        return jsonify({'error': str(e)})
 
 @auth_bp.route('/unbind', methods=['POST'])
 @login_required

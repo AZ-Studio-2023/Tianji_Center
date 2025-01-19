@@ -44,9 +44,9 @@ class Config:
     MICROSOFT_CLIENT_SECRET = os.getenv('MICROSOFT_CLIENT_SECRET')
     
     # Cloudflare配置
-    ENABLE_CLOUDFLARE = os.getenv('ENABLE_CLOUDFLARE', 'True').lower() == 'true'
-    CLOUDFLARE_SITE_KEY = os.getenv('CLOUDFLARE_SITE_KEY')
-    CLOUDFLARE_SECRET_KEY = os.getenv('CLOUDFLARE_SECRET_KEY') 
+    ENABLE_GEETEST = os.getenv('ENABLE_GEETEST', 'True').lower() == 'true'
+    GEETEST_ID = os.getenv('GEETEST_ID')
+    GEETEST_SECRET_KEY = os.getenv('GEETEST_SECRET_KEY') 
     
     # OAuth配置
     QQ_CLIENT_ID = os.getenv('QQ_CLIENT_ID')
@@ -72,4 +72,7 @@ class Config:
     MCRCON_HOST = os.getenv('MCRCON_HOST')
     MCRCON_PASSWORD = os.getenv('MCRCON_PASSWORD')
     MCRCON_PORT = int(os.getenv('MCRCON_PORT'))
+    
+    # 资源包配置
+    RESOURCE_PACKS = eval(os.getenv('RESOURCE_PACKS', '[]'))
 

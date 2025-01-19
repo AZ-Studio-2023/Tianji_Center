@@ -53,10 +53,9 @@
                     </div>
                 </div>
 
-                {% if config.ENABLE_CLOUDFLARE %}
-                <div class="flex justify-center">
-                    <div class="cf-turnstile" data-sitekey="{{ config.CLOUDFLARE_SITE_KEY }}"></div>
-                </div>
+                {% if config.ENABLE_GEETEST %}
+                <!-- 真不是我想用过时的标签，而是用css居中没用 -->
+                <center><div id="captcha"></div></center>
                 {% endif %}
 
                 <div>
@@ -125,19 +124,44 @@ function sendCode() {
         btn.disabled = false;
     });
 }
-
+{% if config.ENABLE_GEETEST %}    
+initGeetest4({
+    captchaId: '{{ config.GEETEST_ID }}'
+},function (captcha) {
+    gt = captcha
+    captcha.appendTo("#captcha");
+});
+{% endif %}
 function handleSubmit(event) {
     event.preventDefault();
-    
+    {% if config.ENABLE_GEETEST %}  
+    const result = gt.getValidate();
+    if (!result) {
+        return showToast("请先完成行为验证", "error")
+    }
+    {% endif %}
     const formData = new FormData(event.target);
+    {% if not config.ENABLE_GEETEST %}  
     const data = {
         email: formData.get('email'),
         username: formData.get('username'),
         password: formData.get('password'),
-        code: formData.get('code'),
-        'cf-turnstile-response': formData.get('cf-turnstile-response')
+        code: formData.get('code')
     };
-    
+    {% endif %}
+    {% if config.ENABLE_GEETEST %}    
+    const base_data = {
+        email: formData.get('email'),
+        username: formData.get('username'),
+        password: formData.get('password'),
+        code: formData.get('code')
+    };
+    const data =  { ...result, ...base_data};
+    {% endif %}
+    // 禁用按钮，改名请稍后
+    document.querySelector('button[type="submit"]').textContent = '请稍后';
+    document.querySelector('button[type="submit"]').disabled = true;
+
     fetch('{{ url_for("auth.register") }}', {
         method: 'POST',
         headers: {
@@ -149,6 +173,8 @@ function handleSubmit(event) {
     .then(data => {
         if (data.error) {
             showToast(data.error, 'error');
+            document.querySelector('button[type="submit"]').textContent = '注册';
+            document.querySelector('button[type="submit"]').disabled = false;
         } else {
             showToast('注册成功，请登录', 'success');
             setTimeout(() => {
@@ -158,6 +184,8 @@ function handleSubmit(event) {
     })
     .catch(error => {
         showToast('注册失败，请重试', 'error');
+        document.querySelector('button[type="submit"]').textContent = '注册';
+        document.querySelector('button[type="submit"]').disabled = false;
     });
     
     return false;

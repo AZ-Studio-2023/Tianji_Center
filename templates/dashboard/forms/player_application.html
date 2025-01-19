@@ -191,8 +191,8 @@
                 </div>
             </div>
 
-            {% if config.ENABLE_CLOUDFLARE %}
-            <div class="cf-turnstile" data-sitekey="{{ config.CLOUDFLARE_SITE_KEY }}"></div>
+            {% if config.ENABLE_GEETEST %}
+            <div id="captcha"></div>
             {% endif %}
 
             <div class="flex justify-end">
@@ -206,25 +206,44 @@
 </div>
 
 <script>
+{% if config.ENABLE_GEETEST %}    
+initGeetest4({
+    captchaId: '{{ config.GEETEST_ID }}'
+},function (captcha) {
+    gt = captcha
+    captcha.appendTo("#captcha");
+});
+{% endif %}
 function submitApplication(event) {
     event.preventDefault();
     const form = event.target;
     const formData = new FormData(form);
+    {% if config.ENABLE_GEETEST %}  
+    const result = gt.getValidate();
+    if (!result) {
+        return showToast("请先完成行为验证", "error")
+    }
+    {% endif %}
+    {% if not config.ENABLE_GEETEST %}  
     const data = {};
     
     formData.forEach((value, key) => {
         data[key] = value;
     });
-
-    {% if config.ENABLE_CLOUDFLARE %}
-    const token = turnstile.getResponse();
-    if (!token) {
-        showToast('请完成人机验证', 'error');
-        return;
-    }
-    data.cf_token = token;
     {% endif %}
 
+    {% if config.ENABLE_GEETEST %}    
+    const base_data = {};
+    
+    formData.forEach((value, key) => {
+        base_data[key] = value;
+    });
+    const data =  { ...result, ...base_data};
+    {% endif %}
+
+    // 禁用按钮，改名请稍后
+    document.querySelector('button[type="submit"]').disabled = true;
+    document.querySelector('button[type="submit"]').textContent = '请稍后';
     fetch('{{ url_for("dashboard.submit_application", form_type="player") }}', {
         method: 'POST',
         headers: {
@@ -236,6 +255,8 @@ function submitApplication(event) {
     .then(data => {
         if (data.error) {
             showToast(data.error, 'error');
+            document.querySelector('button[type="submit"]').disabled = false;
+            document.querySelector('button[type="submit"]').textContent = '提交申请';
         } else {
             showToast('申请提交成功', 'success');
             setTimeout(() => location.href = '{{ url_for("dashboard.applications") }}', 1500);
@@ -244,6 +265,8 @@ function submitApplication(event) {
     .catch(error => {
         showToast('提交失败，请重试', 'error');
         console.error('Error:', error);
+        document.querySelector('button[type="submit"]').disabled = false;
+        document.querySelector('button[type="submit"]').textContent = '提交申请';
     });
 }
 

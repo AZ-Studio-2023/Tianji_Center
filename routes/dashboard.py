@@ -19,6 +19,7 @@ from models.user import auto_review_player_application
 import hashlib
 import uuid
 import requests, mcrcon
+from utils.geetest import verify_geetest
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -282,6 +283,10 @@ def submit_city_application():
 @dashboard_bp.route('/submit-application/<form_type>', methods=['POST'])
 @login_required
 def submit_application(form_type):
+    data = request.get_json()
+    # 验证人机验证
+    if current_app.config['ENABLE_GEETEST'] and not verify_geetest(data):
+        return jsonify({'error': '人机验证失败'})
     if not current_user.verified_qq:
         return jsonify({'error': '请先完成QQ验证'})
         
@@ -290,9 +295,7 @@ def submit_application(form_type):
         
     if current_user.coins < APPLICATION_FEES[form_type]:
         return jsonify({'error': f'天际币不足，需要{APPLICATION_FEES[form_type]}天际币'})
-        
-    data = request.get_json()
-    
+            
     # 验证提交的QQ号是否与验证的QQ号一致
     if data.get('qq_number') != current_user.verified_qq:
         return jsonify({'error': 'QQ号与验证的QQ号不一致'})
@@ -1209,6 +1212,12 @@ def manage_game_account(player_name):
     if permission_level >= 2:
         available_modes.append('创造')
     
+    # 获取可用的资源包
+    available_resource_packs = []
+    for pack in current_app.config['RESOURCE_PACKS']:
+        if permission_level in pack['permissions']:
+            available_resource_packs.append(pack)
+    
     account_info = {
         'player_name': player_name,
         'permission_level': permission_level,
@@ -1217,7 +1226,8 @@ def manage_game_account(player_name):
         'can_use_op2': permission == '创造者权限（OP2）',
         'can_teleport': permission_level >= 2,
         'can_use_effects': permission_level >= 1,
-        'can_spawn': permission_level >= 1
+        'can_spawn': permission_level >= 1,
+        'available_resource_packs': available_resource_packs
     }
     
     return render_template('dashboard/game_account_manage.html', account=account_info)
