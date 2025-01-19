@@ -6,7 +6,7 @@ from utils.oauth import qq_oauth, wechat_oauth, github_oauth, microsoft_oauth
 from utils.geetest import verify_geetest
 from flask_login import login_user, login_required, current_user, logout_user
 from flask_mail import Message
-from models.application import Application
+from models.user import Application
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -394,6 +394,18 @@ def logout():
     logout_user()
     return redirect(url_for('auth.login'))
 
+def check_creative_permission(uid):
+    """检查是否有创造权限"""
+    approved_applications = Application.query.filter_by(
+        user_id=uid,
+        status='approved'
+    ).all()
+    
+    for app in approved_applications:
+        if app.content.get('permission') in ['仅创造', '创造者权限（OP2）']:
+            return True
+    return False
+
 @auth_bp.route('/query_user', methods=['POST'])
 def query_user_by_qq():
     """通过QQ号查询用户信息"""
@@ -412,7 +424,9 @@ def query_user_by_qq():
     user = User.query.filter_by(verified_qq=qq_number).first()
     if not user:
         return jsonify({'error': '未找到该QQ号关联的用户'}), 404
-        
+
+    if not check_creative_permission(user.id):
+        return jsonify({'error': '该用户无创造/OP2权限'}), 404
     # 获取已通过的玩家申请
     approved_players = []
     approved_applications = Application.query.filter_by(
