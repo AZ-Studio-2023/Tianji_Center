@@ -6,6 +6,7 @@ from utils.oauth import qq_oauth, wechat_oauth, github_oauth, microsoft_oauth
 from utils.geetest import verify_geetest
 from flask_login import login_user, login_required, current_user, logout_user
 from flask_mail import Message
+from models.application import Application
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -391,4 +392,44 @@ def unbind():
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('auth.login')) 
+    return redirect(url_for('auth.login'))
+
+@auth_bp.route('/query_user', methods=['POST'])
+def query_user_by_qq():
+    """通过QQ号查询用户信息"""
+    data = request.get_json()
+    qq_number = data.get('qq')
+    key = data.get('key')
+    
+    # 验证密钥
+    if not key or key != current_app.config['KEY']:
+        return jsonify({'error': '密钥错误'}), 403
+        
+    if not qq_number:
+        return jsonify({'error': '请提供QQ号'}), 400
+        
+    # 查找用户
+    user = User.query.filter_by(verified_qq=qq_number).first()
+    if not user:
+        return jsonify({'error': '未找到该QQ号关联的用户'}), 404
+        
+    # 获取已通过的玩家申请
+    approved_players = []
+    approved_applications = Application.query.filter_by(
+        user_id=user.id,
+        form_type='player',
+        status='approved'
+    ).all()
+    
+    # 提取玩家名称（去重）
+    player_names = set()
+    for app in approved_applications:
+        player_name = app.content.get('player_name')
+        if player_name:
+            player_names.add(player_name)
+    
+    return jsonify({
+        'username': user.username,
+        'email': user.email,
+        'players': list(player_names)
+    }) 
