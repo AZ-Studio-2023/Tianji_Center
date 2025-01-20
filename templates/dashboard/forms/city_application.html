@@ -192,14 +192,6 @@ function submitApplication(event) {
     {% endif %}
 
 
-    {% if config.ENABLE_GEETEST %}
-    const token = turnstile.getResponse();
-    if (!token) {
-        showToast('请完成人机验证', 'error');
-        return;
-    }
-    data.cf_token = token;
-    {% endif %}
     // 禁用按钮，改名请稍后
     document.querySelector('button[type="submit"]').disabled = true;
     document.querySelector('button[type="submit"]').textContent = '请稍后';
