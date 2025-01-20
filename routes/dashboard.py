@@ -1190,21 +1190,33 @@ def manage_game_account(player_name):
         user_id=current_user.id,
         form_type='player',
         status='approved'
-    ).order_by(Application.created_at.desc()).first()
+    ).order_by(Application.created_at.desc()).all()
+    l = []
+    player_permissions = {}  # 使用字典存储玩家名和对应的权限
+    for i in application:
+        player_name_in_application = i.content.get("player_name")
+        if player_name_in_application not in l:
+            l.append(player_name_in_application)
+        if player_name_in_application not in player_permissions:
+            player_permissions[player_name_in_application] = []
+        player_permissions[player_name_in_application].append(i.content.get("permission"))
     
-    if not application or application.content.get('player_name') != player_name:
+    if not application or player_name not in l:
         return jsonify({'error': '未找到该账号或无权限'}), 404
-        
+
+    permissions_l = player_permissions.get(player_name, [])
     # 获取权限等级
-    permission = application.content.get('permission')
     permissions = {
         '仅旁观': 0,
         '仅生存': 1,
         '仅创造': 2,
-        '创造者权限（OP2）': 2
+        '创造者权限（OP2）': 3
     }
-    permission_level = permissions.get(permission, 0)
-    
+
+    # 获取该玩家名的权限等级
+    permissions_l = [permissions.get(permission, 0) for permission in permissions_l]
+    permission_level = max(permissions_l)  # 选择该玩家的最大权限等级
+
     # 获取可用的游戏模式
     available_modes = ['旁观']
     if permission_level >= 1:
@@ -1217,13 +1229,13 @@ def manage_game_account(player_name):
     for pack in current_app.config['RESOURCE_PACKS']:
         if permission_level in pack['permissions']:
             available_resource_packs.append(pack)
-    
+
     account_info = {
         'player_name': player_name,
         'permission_level': permission_level,
-        'permission': permission,
+        'permission': {v: k for k, v in permissions.items()}[permission_level],
         'available_modes': available_modes,
-        'can_use_op2': permission == '创造者权限（OP2）',
+        'can_use_op2': permission_level == 3,
         'can_teleport': permission_level >= 2,
         'can_use_effects': permission_level >= 1,
         'can_spawn': permission_level >= 1,
@@ -1263,30 +1275,71 @@ def game_account_action():
         user_id=current_user.id,
         form_type='player',
         status='approved'
-    ).order_by(Application.created_at.desc()).first()
+    ).order_by(Application.created_at.desc()).all()
+    l = []
+    player_permissions = {} 
+    for i in application:
+        player_name_in_application = i.content.get("player_name")
+        if player_name_in_application not in l:
+            l.append(player_name_in_application)
+        if player_name_in_application not in player_permissions:
+            player_permissions[player_name_in_application] = []
+        player_permissions[player_name_in_application].append(i.content.get("permission"))
     
-    if not application or application.content.get('player_name') != player_name:
-        return jsonify({'error': '无权限执行此操作'}), 403
+    if not application or player_name not in l:
+        return jsonify({'error': '无权限操作'}), 404
+
+    permissions_l = player_permissions.get(player_name, [])
+    # 获取权限等级
+    permissions = {
+        '仅旁观': 0,
+        '仅生存': 1,
+        '仅创造': 2,
+        '创造者权限（OP2）': 3
+    }
+
+    # 获取该玩家名的权限等级
+    permissions_l = [permissions.get(permission, 0) for permission in permissions_l]
+    permission_level = max(permissions_l)  # 选择该玩家的最大权限等级
+
+    # 获取可用的游戏模式
+    available_modes = ['旁观']
+    if permission_level >= 1:
+        available_modes.append('生存')
+    if permission_level >= 2:
+        available_modes.append('创造')
     
     try:
         if action == 'change_mode':
             mode = data.get('change_mode')
+            if permission_level < 2 and "创造" in mode:
+                return jsonify({'error': '无权限操作'}), 404
+            if permission_level < 1 and "生存" in mode:
+                return jsonify({'error': '无权限操作'}), 404
             change_mode(player_name, mode, current_app.config['MCRCON_HOST'], current_app.config['MCRCON_PASSWORD'], current_app.config['MCRCON_PORT'])
         elif action == 'grant_op2':
+            if permission_level  != 3:
+                return jsonify({'error': '无权限操作'}), 404
             send_cmd(f'op {player_name}', current_app.config['MCRCON_HOST'], current_app.config['MCRCON_PASSWORD'], current_app.config['MCRCON_PORT'])
         elif action == 'teleport':
             x = data.get('x')
             y = data.get('y')
             z = data.get('z')
+            if permission_level < 2:
+                return jsonify({'error': '无权限操作'}), 404
             send_cmd(f'tp {player_name} {x} {y} {z}', current_app.config['MCRCON_HOST'], current_app.config['MCRCON_PASSWORD'], current_app.config['MCRCON_PORT'])
         elif action == 'spawn':
+            if permission_level == 0:
+                return jsonify({'error': '无权限操作'}), 404
             send_cmd(f'kill {player_name}', current_app.config['MCRCON_HOST'], current_app.config['MCRCON_PASSWORD'], current_app.config['MCRCON_PORT'])
         elif action == 'effect':
             effect = data.get('effect')
+            if permission_level == 0:
+                return jsonify({'error': '无权限操作'}), 404
             if "night_vision" in effect:
-                send_cmd(f'effect give {player_name} night_vision 99999 2', current_app.config['MCRCON_HOST'], current_app.config['MCRCON_PASSWORD'], current_app.config['MCRCON_PORT'])
+                send_cmd(f'effect give {player_name} night_vision infinite 2 true', current_app.config['MCRCON_HOST'], current_app.config['MCRCON_PASSWORD'], current_app.config['MCRCON_PORT'])
             else:
-                send_cmd(f'effect give {player_name} speed 99999 2', current_app.config['MCRCON_HOST'], current_app.config['MCRCON_PASSWORD'], current_app.config['MCRCON_PORT'])
+                send_cmd(f'effect give {player_name} speed infinite 2 true', current_app.config['MCRCON_HOST'], current_app.config['MCRCON_PASSWORD'], current_app.config['MCRCON_PORT'])
         else:
             return jsonify({'error': '未知操作'}), 400
             
