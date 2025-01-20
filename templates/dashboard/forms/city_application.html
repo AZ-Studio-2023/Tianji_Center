@@ -164,7 +164,7 @@ function submitApplication(event) {
     
     data.districts = districts;
     {% endif %}
-    {% if not config.ENABLE_GEETEST %}  
+    {% if config.ENABLE_GEETEST %}  
     const base_data = {};
     
     // 特殊处理区县数组

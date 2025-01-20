@@ -5,6 +5,7 @@ from extensions import db
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 import json
+from models.user import User
 
 oauth_bp = Blueprint('oauth', __name__)
 
@@ -18,16 +19,24 @@ OAUTH_SCOPES = {
 @oauth_bp.route('/authorize')
 def authorize():
     """OAuth授权页面"""
+    # 验证必需的参数
     client_id = request.args.get('client_id')
     redirect_uri = request.args.get('redirect_uri')
+    response_type = request.args.get('response_type')  # 需要添加这个参数检查
     scope = request.args.get('scope', 'basic')
     state = request.args.get('state', '')
     
-    # 验证参数
-    if not client_id or not redirect_uri:
+    # 验证必需参数
+    if not all([client_id, redirect_uri, response_type]):
         return render_template('oauth/error.html', 
-            error='缺少必要参数',
-            description='client_id 和 redirect_uri 是必需的')
+            error='invalid_request',
+            description='缺少必要参数 client_id、redirect_uri 或 response_type')
+    
+    # 验证 response_type（OAuth2.0 要求）
+    if response_type != 'code':
+        return render_template('oauth/error.html',
+            error='unsupported_response_type',
+            description='仅支持 authorization code 授权方式')
     
     # 验证应用
     app = OAuthApp.query.filter_by(client_id=client_id).first()
@@ -113,6 +122,13 @@ def handle_authorize():
 @oauth_bp.route('/token', methods=['POST'])
 def token():
     """获取访问令牌"""
+    # 验证 Content-Type
+    if not request.headers.get('Content-Type', '').startswith('application/x-www-form-urlencoded'):
+        return jsonify({
+            'error': 'invalid_request',
+            'error_description': '请求必须使用 application/x-www-form-urlencoded 格式'
+        }), 400
+
     grant_type = request.form.get('grant_type')
     
     if grant_type == 'authorization_code':
@@ -127,12 +143,13 @@ def token():
 
 def handle_authorization_code():
     """处理授权码方式"""
+    # 所有参数都应该从 form 中获取
     code = request.form.get('code')
     client_id = request.form.get('client_id')
     client_secret = request.form.get('client_secret')
     redirect_uri = request.form.get('redirect_uri')
     
-    # 验证参数
+    # 验证所有必需参数
     if not all([code, client_id, client_secret, redirect_uri]):
         return jsonify({
             'error': 'invalid_request',
@@ -175,16 +192,17 @@ def handle_authorization_code():
         )
         db.session.add(token)
         
-        # 删除使用过的授权码
+        # 删除使用过的授权码（安全要求）
         db.session.delete(auth_code)
         db.session.commit()
         
+        # 标准的 OAuth2.0 响应格式
         return jsonify({
             'access_token': token.access_token,
             'token_type': 'Bearer',
-            'expires_in': 86400,  # 24小时
+            'expires_in': 86400,  # 24小时（秒）
             'refresh_token': token.refresh_token,
-            'scope': token.scope
+            'scope': token.scope or ''  # 确保返回空字符串而不是 None
         })
         
     except Exception as e:
@@ -259,4 +277,60 @@ def handle_refresh_token():
         return jsonify({
             'error': 'server_error',
             'error_description': str(e)
-        }), 500 
+        }), 500
+
+@oauth_bp.route('/api/user', methods=['GET'])
+def get_user_info():
+    """获取用户信息的API接口"""
+    # 从请求头中获取访问令牌
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        # 按照 RFC 6750 规范返回错误
+        response = jsonify({
+            'error': 'invalid_request',
+            'error_description': '缺少访问令牌'
+        })
+        response.headers['WWW-Authenticate'] = 'Bearer realm="User API"'
+        return response, 401
+    
+    # 提取访问令牌
+    access_token = auth_header.split(' ')[1]
+    
+    # 验证访问令牌
+    token = OAuthToken.query.filter_by(access_token=access_token).first()
+    if not token:
+        response = jsonify({
+            'error': 'invalid_token',
+            'error_description': '无效的访问令牌'
+        })
+        response.headers['WWW-Authenticate'] = 'Bearer error="invalid_token"'
+        return response, 401
+    
+    # 检查令牌是否过期
+    if token.expires_at < datetime.utcnow():
+        response = jsonify({
+            'error': 'invalid_token',
+            'error_description': '访问令牌已过期'
+        })
+        response.headers['WWW-Authenticate'] = 'Bearer error="invalid_token", error_description="The access token expired"'
+        return response, 401
+    
+    # 获取用户信息
+    user = User.query.get(token.user_id)
+    if not user:
+        return jsonify({
+            'error': 'invalid_token',
+            'error_description': '找不到对应的用户'
+        }), 401
+    
+    # 根据授权范围返回用户信息
+    scopes = token.scope.split() if token.scope else []
+    
+    # 基本信息（basic scope）
+    response = {
+        'id': user.id,
+        'username': user.username,
+        'email': user.email
+    }
+    
+    return jsonify(response) 
