@@ -925,8 +925,8 @@ def review_application():
         application.reviewed_at = get_current_time()
         application.reviewer_id = current_user.id
 
-        user = User.query.filter_by(id=application.user_id).first()
-        if status == "approved":
+        if status == "approved" and application.form_type == "player":
+            user = User.query.filter_by(id=application.user_id).first()
             if application.content['permission'] == '创造者权限（OP2）' and user.role != 'admin':
                 user.role = 'creator'
             elif application.content['permission'] == '仅旁观' and user.role != 'admin' and user.role != 'creator' and user.role != 'player':
