@@ -1,11 +1,12 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for
 from flask_login import login_required, current_user
 from models.oauth import OAuthApp, OAuthCode, OAuthToken
+from models.user import User, Application
 from extensions import db
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 import json
-from models.user import User
+from utils.permissions import check_creative_permission
 
 oauth_bp = Blueprint('oauth', __name__)
 
@@ -22,7 +23,7 @@ def authorize():
     # 验证必需的参数
     client_id = request.args.get('client_id')
     redirect_uri = request.args.get('redirect_uri')
-    response_type = request.args.get('response_type')  # 需要添加这个参数检查
+    response_type = request.args.get('response_type')
     scope = request.args.get('scope', 'basic')
     state = request.args.get('state', '')
     
@@ -62,6 +63,7 @@ def authorize():
     if not current_user.is_authenticated:
         return redirect(url_for('auth.login', next=request.url))
     
+    
     return render_template('oauth/authorize.html',
         app=app,
         client_id=client_id,
@@ -69,6 +71,26 @@ def authorize():
         scope=scope,
         state=state,
         scopes=scopes)
+
+def check_creative_permission():
+    """检查是否有创造权限"""
+    approved_applications = Application.query.filter_by(
+        user_id=current_user.id,
+        status='approved'
+    ).all()
+    
+    for app in approved_applications:
+        if app.content.get('permission') in ['仅创造', '创造者权限（OP2）']:
+            return True
+    return False
+
+
+@oauth_bp.context_processor
+def inject_permissions():
+    def has_creative_permission():
+        return check_creative_permission()
+    return dict(has_creative_permission=has_creative_permission)
+
 
 @oauth_bp.route('/authorize', methods=['POST'])
 @login_required
@@ -107,6 +129,7 @@ def handle_authorize():
         params = {'code': code.code}
         if state:
             params['state'] = state
+        params['id'] = current_user.id
         return redirect(f'{redirect_uri}?{urlencode(params)}')
         
     except Exception as e:
@@ -144,11 +167,12 @@ def token():
 def handle_authorization_code():
     """处理授权码方式"""
     # 所有参数都应该从 form 中获取
-    code = request.form.get('code')
-    client_id = request.form.get('client_id')
-    client_secret = request.form.get('client_secret')
-    redirect_uri = request.form.get('redirect_uri')
-    
+    data = request.get_json()
+    code = data.get('code')
+    client_id = data.get('client_id')
+    client_secret = data.get('client_secret')
+    redirect_uri = data.get('redirect_uri')
+
     # 验证所有必需参数
     if not all([code, client_id, client_secret, redirect_uri]):
         return jsonify({
@@ -202,7 +226,8 @@ def handle_authorization_code():
             'token_type': 'Bearer',
             'expires_in': 86400,  # 24小时（秒）
             'refresh_token': token.refresh_token,
-            'scope': token.scope or ''  # 确保返回空字符串而不是 None
+            'scope': token.scope or '',  # 确保返回空字符串而不是 None
+            'id': current_user.id
         })
         
     except Exception as e:
@@ -279,58 +304,102 @@ def handle_refresh_token():
             'error_description': str(e)
         }), 500
 
-@oauth_bp.route('/api/user', methods=['GET'])
-def get_user_info():
-    """获取用户信息的API接口"""
-    # 从请求头中获取访问令牌
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        # 按照 RFC 6750 规范返回错误
-        response = jsonify({
+@oauth_bp.route('/api/user/<int:id>.json')
+def get_user_info(id):
+    """获取用户信息的API接口 - Discourse格式"""
+    # 从URL参数中获取访问令牌
+    access_token = request.args.get('token')
+    if not access_token:
+        return jsonify({
             'error': 'invalid_request',
             'error_description': '缺少访问令牌'
-        })
-        response.headers['WWW-Authenticate'] = 'Bearer realm="User API"'
-        return response, 401
-    
-    # 提取访问令牌
-    access_token = auth_header.split(' ')[1]
+        }), 401
     
     # 验证访问令牌
     token = OAuthToken.query.filter_by(access_token=access_token).first()
     if not token:
-        response = jsonify({
+        return jsonify({
             'error': 'invalid_token',
             'error_description': '无效的访问令牌'
-        })
-        response.headers['WWW-Authenticate'] = 'Bearer error="invalid_token"'
-        return response, 401
+        }), 401
     
     # 检查令牌是否过期
     if token.expires_at < datetime.utcnow():
-        response = jsonify({
+        return jsonify({
             'error': 'invalid_token',
             'error_description': '访问令牌已过期'
-        })
-        response.headers['WWW-Authenticate'] = 'Bearer error="invalid_token", error_description="The access token expired"'
-        return response, 401
+        }), 401
+    
+    # 获取用户信息
+    user = User.query.get(id)
+    if not user:
+        return jsonify({
+            'error': 'not_found',
+            'error_description': '找不到对应的用户'
+        }), 404
+    
+    # 返回 Discourse 格式的用户信息
+    return jsonify({
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'avatar_url': user.get_avatar_url(),
+            'created_at': user.created_at.isoformat(),
+            'admin': user.is_admin,
+            'external_id': str(user.id),
+            'groups': [
+                {'name': user.role} if user.role else None
+            ]
+        }
+    })
+
+@oauth_bp.route('/api/user.json')
+def get_current_user_info():
+    """获取当前用户信息的API接口"""
+    # 从URL参数中获取访问令牌
+    access_token = request.args.get('token')
+    if not access_token:
+        return jsonify({
+            'error': 'invalid_request',
+            'error_description': '缺少访问令牌'
+        }), 401
+    
+    # 验证访问令牌
+    token = OAuthToken.query.filter_by(access_token=access_token).first()
+    if not token:
+        return jsonify({
+            'error': 'invalid_token',
+            'error_description': '无效的访问令牌'
+        }), 401
+    
+    # 检查令牌是否过期
+    if token.expires_at < datetime.utcnow():
+        return jsonify({
+            'error': 'invalid_token',
+            'error_description': '访问令牌已过期'
+        }), 401
     
     # 获取用户信息
     user = User.query.get(token.user_id)
     if not user:
         return jsonify({
-            'error': 'invalid_token',
+            'error': 'not_found',
             'error_description': '找不到对应的用户'
-        }), 401
+        }), 404
     
-    # 根据授权范围返回用户信息
-    scopes = token.scope.split() if token.scope else []
-    
-    # 基本信息（basic scope）
-    response = {
-        'id': user.id,
-        'username': user.username,
-        'email': user.email
-    }
-    
-    return jsonify(response) 
+    return jsonify({
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'name': user.nickname or user.username,
+            'email': user.email,
+            'avatar_url': user.get_avatar_url(),
+            'created_at': user.created_at.isoformat(),
+            'admin': user.is_admin,
+            'external_id': str(user.id),
+            'groups': [
+                {'name': user.role} if user.role else None
+            ]
+        }
+    }) 

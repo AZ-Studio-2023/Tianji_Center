@@ -1,61 +1,77 @@
-{% extends "base.html" %}
+{% extends "dashboard/base.html" %}
 
 {% block title %}授权确认{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
-    <div class="relative py-3 sm:max-w-xl sm:mx-auto">
-        <div class="relative px-4 py-10 bg-white mx-8 md:mx-0 shadow rounded-3xl sm:p-10">
-            <div class="max-w-md mx-auto">
-                <div class="divide-y divide-gray-200">
-                    <div class="py-8 text-base leading-6 space-y-4 text-gray-700 sm:text-lg sm:leading-7">
-                        <div class="flex items-center space-x-4">
-                            {% if app.logo_url %}
-                            <img src="{{ app.logo_url }}" alt="{{ app.name }}" class="w-16 h-16 rounded-lg">
-                            {% endif %}
-                            <div>
-                                <h2 class="text-2xl font-bold text-gray-900">{{ app.name }}</h2>
-                                <p class="text-sm text-gray-500">请求获取以下权限：</p>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-gray-50 rounded-lg p-4 mt-4">
-                            <ul class="list-disc list-inside space-y-2">
-                                {% for scope in scopes %}
-                                <li>{{ scope }}</li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                        
-                        <p class="text-sm text-gray-500 mt-4">
-                            授权后，该应用将能够：
-                        </p>
-                        <ul class="list-disc list-inside space-y-2 text-sm text-gray-600">
-                            <li>获取您的基本信息（用户名、邮箱等）</li>
-                        </ul>
+<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+        <!-- 应用信息卡片 -->
+        <div class="bg-white rounded-lg shadow-xl overflow-hidden">
+            <!-- 顶部应用信息 -->
+            <div class="px-6 py-8 border-b border-gray-200">
+                <div class="flex items-center space-x-4">
+                    {% if app.logo_url %}
+                    <img src="{{ app.logo_url }}" alt="{{ app.name }}" class="w-16 h-16 rounded-lg shadow-md">
+                    {% else %}
+                    <div class="w-16 h-16 rounded-lg bg-blue-500 flex items-center justify-center text-white text-2xl font-bold">
+                        {{ app.name[0] }}
                     </div>
-                    
-                    <div class="pt-6 text-base leading-6 font-bold sm:text-lg sm:leading-7">
-                        <form method="post" action="{{ url_for('oauth.authorize') }}" class="space-y-4">
-                            <input type="hidden" name="client_id" value="{{ client_id }}">
-                            <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
-                            <input type="hidden" name="scope" value="{{ scope }}">
-                            <input type="hidden" name="state" value="{{ state }}">
-                            
-                            <div class="flex justify-end space-x-4">
-                                <button type="submit" name="action" value="deny"
-                                        class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
-                                    拒绝
-                                </button>
-                                <button type="submit" name="action" value="allow"
-                                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                                    授权
-                                </button>
-                            </div>
-                        </form>
+                    {% endif %}
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">{{ app.name }}</h2>
+                        <p class="text-sm text-gray-500">想要访问您的账号</p>
                     </div>
                 </div>
+                {% if app.description %}
+                <p class="mt-4 text-sm text-gray-600">{{ app.description }}</p>
+                {% endif %}
             </div>
+
+            <!-- 权限列表 -->
+            <div class="px-6 py-4 bg-gray-50">
+                <h3 class="text-sm font-medium text-gray-700">将获得以下权限：</h3>
+                <ul class="mt-3 space-y-2">
+                    {% for scope in scopes %}
+                    <li class="text-sm text-gray-600">• {{ scope }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <!-- 安全提示 -->
+            <div class="px-6 py-4 bg-blue-50">
+                <p class="text-sm text-blue-700">
+                    授权后，该应用将能访问您的基本信息。
+                </p>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="px-6 py-4 bg-gray-50">
+                <form method="post" action="{{ url_for('oauth.authorize') }}" class="flex space-x-4">
+                    <input type="hidden" name="client_id" value="{{ client_id }}">
+                    <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
+                    <input type="hidden" name="scope" value="{{ scope }}">
+                    <input type="hidden" name="state" value="{{ state }}">
+                    
+                    <button type="submit" name="action" value="deny"
+                            class="flex-1 py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        拒绝授权
+                    </button>
+                    <button type="submit" name="action" value="allow"
+                            class="flex-1 py-2 px-4 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        确认授权
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 底部提示 -->
+        <div class="text-center">
+            <p class="text-xs text-gray-500">
+                授权即表示您同意该应用的
+                <a href="#" class="text-blue-600 hover:text-blue-500">服务条款</a>
+                和
+                <a href="#" class="text-blue-600 hover:text-blue-500">隐私政策</a>
+            </p>
         </div>
     </div>
 </div>

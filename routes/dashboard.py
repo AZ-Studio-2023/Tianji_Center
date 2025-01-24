@@ -1311,7 +1311,7 @@ def game_account_action():
     
     try:
         if action == 'change_mode':
-            mode = data.get('change_mode')
+            mode = data.get('mode')
             if permission_level < 2 and "创造" in mode:
                 return jsonify({'error': '无权限操作'}), 404
             if permission_level < 1 and "生存" in mode:

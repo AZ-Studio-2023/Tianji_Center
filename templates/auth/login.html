@@ -16,7 +16,7 @@
         </div>
 
         <div class="mt-8 bg-white py-8 px-4 shadow-lg sm:rounded-lg sm:px-10">
-            <form class="space-y-6" method="POST" onsubmit="return handleSubmit(event)">
+            <form class="space-y-6" method="POST" onsubmit="return handleLogin(event)">
                 <div>
                     <label for="email" class="block text-sm font-medium text-gray-700">邮箱地址</label>
                     <div class="mt-1">
@@ -95,7 +95,7 @@ initGeetest4({
 });
 {% endif %}
 
-function handleSubmit(event) {
+function handleLogin(event) {
     event.preventDefault();
     {% if config.ENABLE_GEETEST %}  
     const result = gt.getValidate();
@@ -120,7 +120,7 @@ function handleSubmit(event) {
     // 禁用按钮，改名请稍后
     document.querySelector('button[type="submit"]').textContent = '请稍后';
     document.querySelector('button[type="submit"]').disabled = true;
-    fetch('{{ url_for("auth.login") }}', {
+    fetch('/auth/login' + window.location.search, {  // 添加原有的URL参数
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -134,7 +134,11 @@ function handleSubmit(event) {
             document.querySelector('button[type="submit"]').textContent = '登录';
             document.querySelector('button[type="submit"]').disabled = false;
         } else {
-            window.location.href = '{{ url_for("dashboard.index") }}';
+            showToast(data.message, 'success');
+            // 使用返回的next参数进行跳转
+            setTimeout(() => {
+                window.location.href = data.next;
+            }, 1500);
         }
     })
     .catch(error => {

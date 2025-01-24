@@ -62,6 +62,10 @@ def register():
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
+        # 如果有next参数，登录后跳转到next指定的页面
+        next_page = request.args.get('next')
+        if next_page:
+            return redirect(next_page)
         return redirect(url_for('dashboard.index'))
         
     if request.method == 'POST':
@@ -71,11 +75,17 @@ def login():
         # 验证人机验证
         if current_app.config['ENABLE_GEETEST'] and not verify_geetest(data):
             return jsonify({'error': '人机验证失败'})
+            
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
             # 登录成功处理
             login_user(user)
-            return jsonify({'message': '登录成功'})
+            # 返回next参数，让前端处理跳转
+            next_page = request.args.get('next')
+            return jsonify({
+                'message': '登录成功',
+                'next': next_page if next_page else url_for('dashboard.index')
+            })
             
         return jsonify({'error': '邮箱或密码错误'})
         

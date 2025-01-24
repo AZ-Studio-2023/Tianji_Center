@@ -4,6 +4,7 @@ from flask_login import UserMixin
 from datetime import datetime
 from flask import current_app
 import pytz, json, requests, uuid, mcrcon
+import hashlib
 
 headers = {
     'User-Agent': 'tjb'
@@ -69,7 +70,6 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
         
     def get_cravatar_url(self):
-        import hashlib
         email_hash = hashlib.md5(self.email.lower().encode()).hexdigest()
         return f"https://cravatar.cn/avatar/{email_hash}?d=identicon"
         
@@ -79,6 +79,16 @@ class User(UserMixin, db.Model):
             return self.qq_avatar
         else:
             return self.get_cravatar_url()
+
+    def get_avatar_url(self):
+        """获取用户头像URL"""
+        if self.avatar_type == 'qq' and self.qq_avatar:
+            return self.qq_avatar
+        elif self.avatar_type == 'cravatar':
+            # 使用 Cravatar 服务
+            email_hash = hashlib.md5(self.email.lower().encode()).hexdigest()
+            return f'https://cravatar.cn/avatar/{email_hash}?d=mp'
+        return 'https://cravatar.cn/avatar?d=mp'  # 默认头像
 
 class Application(db.Model):
     __tablename__ = 'applications'
