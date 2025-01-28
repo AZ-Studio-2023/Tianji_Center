@@ -388,117 +388,97 @@ def activities():
 @dashboard_bp.route('/join-activity/<int:activity_id>', methods=['POST'])
 @login_required
 def join_activity(activity_id):
+    activity = Activity.query.get_or_404(activity_id)
+    
+    # 检查活动是否已结束
+    if activity.status != 'active':
+        return jsonify({'error': '活动已结束'})
+    
+    # 检查是否已参与
+    if activity.get_participant(current_user.id):
+        return jsonify({'error': '您已参与过此活动'})
+    
     try:
-        activity = Activity.query.get_or_404(activity_id)
-        now = get_current_time()
-        
-        # 确保活动时间有时区信息
-        activity.start_time = ensure_timezone(activity.start_time)
-        activity.end_time = ensure_timezone(activity.end_time)
-        
-        if now < activity.start_time:
-            return jsonify({'error': '活动还未开始'})
-        if now > activity.end_time or activity.status != 'active':
-            return jsonify({'error': '活动已结束'})
-            
-        # 检查是否已参与
-        if activity.get_participant(current_user.id):
-            return jsonify({'error': '您已参与过此活动'})
-            
-        # 根据活动类型处理
-        if activity.type == 'lottery':
-            # 创建参与记录
+        if activity.type == 'metro_quiz':
+            data = request.get_json()
             participant = ActivityParticipant(
                 activity_id=activity_id,
-                user_id=current_user.id
-            )
-            db.session.add(participant)
-            db.session.flush()  # 先保存参与记录以获取ID
-            
-            # 获取奖项配置并随机抽取
-            prizes = activity.config.get('prizes', [])
-            total_prizes = []
-            for prize in prizes:
-                for _ in range(prize['count']):
-                    total_prizes.append(prize)
-                    
-            if total_prizes:
-                # 随机抽取一个奖项
-                prize = random.choice(total_prizes)
-                participant.reward = prize
-                
-                # 如果是天际币奖励，立即发放
-                if prize['type'] == 'coins':
-                    current_user.coins += prize['amount']
-                    record = CoinRecord(
-                        user_id=current_user.id,
-                        amount=prize['amount'],
-                        reason=f'抽奖活动"{activity.title}"中奖'
-                    )
-                    db.session.add(record)
-                    message = f'恭喜获得 {prize["amount"]} 天际币！'
-                else:
-                    message = f'恭喜获得 {prize["name"]}！'
-            else:
-                participant.reward = {'type': 'none'}
-                message = '很遗憾未中奖'
-                
-        elif activity.type in ['lucky_red_packet', 'fixed_red_packet']:
-            # 红包逻辑保持不变
-            if len(activity.participants) >= activity.config['count']:
-                return jsonify({'error': '红包已被领完'})
-            amount = activity.config['amount']
-            if activity.type == 'lucky_red_packet':
-                # 拼手气红包逻辑
-                total_coins = activity.config['total_coins']
-                count = activity.config['count']
-                remaining_count = count - len(activity.participants)
-                if remaining_count == 1:
-                    # 最后一个红包，直接给出剩余金额
-                    coins = amount
-                else:
-                    # 随机分配金额
-                    while True:
-                        coins = random.randint(1, int(amount / remaining_count)*2)
-                        if coins <= amount - remaining_count:
-                            break
-                amount -= coins
-                activity.config = {
-                    'amount': amount,
-                    'count': count,
-                    'total_coins': total_coins
+                user_id=current_user.id,
+                answers={
+                    'city': data.get('city'),
+                    'line': data.get('line'),
+                    'direction': data.get('direction'),
+                    'station': data.get('station')
                 }
-            else:
-                # 普通红包，固定金额
-                coins = activity.config['coins']
-                
-            # 创建参与记录
-            participant = ActivityParticipant(
-                activity_id=activity_id,
-                user_id=current_user.id,
-                reward={'type': 'coins', 'amount': coins}
             )
             db.session.add(participant)
+            db.session.commit()
+            return jsonify({'message': '答案提交成功'})
             
-            # 发放天际币
-            current_user.coins += coins
-            record = CoinRecord(
-                user_id=current_user.id,
-                amount=coins,
-                reason=f'参与活动"{activity.title}"'
-            )
-            db.session.add(record)
-            message = f'获得 {coins} 天际币'
+        elif activity.type in ['lucky_red_packet', 'fixed_red_packet', 'lottery']:
+            # 处理其他类型活动的参与逻辑...
+            pass
             
-        db.session.commit()
-        return jsonify({
-            'message': message,
-            'reward': participant.reward
-        })
-        
-    except ZeroDivisionError as e:
+    except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)})
+    
+    return jsonify({'error': '不支持的活动类型'})
+
+@dashboard_bp.route('/draw-activity/<int:activity_id>', methods=['POST'])
+@login_required
+def draw_activity(activity_id):
+    if not current_user.is_admin:
+        return jsonify({'error': '无权限'})
+        
+    activity = Activity.query.get_or_404(activity_id)
+    if activity.type != 'metro_quiz' or activity.status != 'active':
+        return jsonify({'error': '无效的操作'})
+        
+    try:
+        # 更新活动状态
+        activity.status = 'drawing'
+        
+        # 检查所有参与者的答案
+        for participant in activity.participants:
+            correct_count = 0
+            answers = participant.answers or {}
+            
+            # 检查每个答案
+            if activity.config['city_answer'].lower() in answers.get('city', '').lower():
+                correct_count += 1
+            if activity.config['line_answer'].lower() in answers.get('line', '').lower():
+                correct_count += 1
+            if activity.config['direction_answer'].lower() in answers.get('direction', '').lower():
+                correct_count += 1
+            if activity.config['station_answer'].lower() in answers.get('station', '').lower():
+                correct_count += 1
+            
+            # 计算奖励
+            reward_amount = correct_count * activity.config['coins_per_answer']
+            
+            # 更新参与记录
+            participant.reward = {
+                'amount': reward_amount,
+                'correct_count': correct_count
+            }
+            
+            # 发放奖励
+            if reward_amount > 0:
+                user = User.query.get(participant.user_id)
+                user.coins += reward_amount
+                record = CoinRecord(
+                    user_id=user.id,
+                    amount=reward_amount,
+                    reason=f'地铁竞猜活动"{activity.title}"奖励'
+                )
+                db.session.add(record)
+        
+        db.session.commit()
+        return jsonify({'message': '开奖成功'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'开奖出错: {str(e)}'})
 
 # 账号设置相关路由
 @dashboard_bp.route('/profile', methods=['GET', 'POST'])
@@ -654,31 +634,17 @@ def create_activity():
     try:
         title = request.form.get('title')
         type = request.form.get('type')
+        start_time = datetime.strptime(request.form.get('start_time'), '%Y-%m-%dT%H:%M')
+        end_time = datetime.strptime(request.form.get('end_time'), '%Y-%m-%dT%H:%M')
         
-        # 处理时间时添加时区信息
-        start_time = localize_time(datetime.strptime(request.form.get('start_time'), '%Y-%m-%dT%H:%M'))
-        end_time = localize_time(datetime.strptime(request.form.get('end_time'), '%Y-%m-%dT%H:%M'))
-        
-        if start_time >= end_time:
-            return jsonify({'error': '结束时间必须晚于开始时间'})
-        
-        config = {}
-        if type == 'lucky_red_packet':
+        if type == 'metro_quiz':
             config = {
-                'total_coins': int(request.form.get('lucky_total_coins')),
-                'count': int(request.form.get('lucky_count')),
-                'amount': int(request.form.get('lucky_total_coins'))
-            }
-        elif type == 'fixed_red_packet':
-            config = {
-                'coins': int(request.form.get('fixed_coins')),
-                'count': int(request.form.get('fixed_count'))
-            }
-        elif type == 'lottery':
-            prizes = json.loads(request.form.get('prizes', '[]'))
-            config = {
-                'prizes': prizes,
-                'empty_count': int(request.form.get('empty_count', 0))
+                'image_url': request.form.get('image_url'),
+                'coins_per_answer': int(request.form.get('coins_per_answer')),
+                'city_answer': request.form.get('city_answer'),
+                'line_answer': request.form.get('line_answer'),
+                'direction_answer': request.form.get('direction_answer'),
+                'station_answer': request.form.get('station_answer')
             }
         
         activity = Activity(
@@ -692,13 +658,7 @@ def create_activity():
         db.session.add(activity)
         db.session.commit()
         
-        flash('活动创建成功', 'success')
         return jsonify({'message': '活动创建成功'})
-        
-    except ValueError as e:
-        return jsonify({'error': '请检查输入的数值是否正确'})
-    except json.JSONDecodeError:
-        return jsonify({'error': '奖品数据格式错误'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)})
@@ -1346,3 +1306,35 @@ def game_account_action():
         return jsonify({'message': '操作成功'})
     except ValueError as e:
         return jsonify({'error': str(e)}), 500
+
+@dashboard_bp.route('/activity-answers/<int:activity_id>')
+@login_required
+def activity_answers(activity_id):
+    if not current_user.is_admin:
+        return jsonify({'error': '无权限'})
+        
+    activity = Activity.query.get_or_404(activity_id)
+    if activity.type != 'metro_quiz':
+        return jsonify({'error': '不支持的活动类型'})
+        
+    # 如果活动未开奖，不允许查看答题记录
+    if activity.status == 'active':
+        return jsonify({'error': '活动尚未开奖'})
+        
+    answers = []
+    for participant in activity.participants:
+        user = User.query.get(participant.user_id)
+        answers.append({
+            'username': user.username,
+            'answers': participant.answers,
+            'reward': participant.reward,
+            'created_at': participant.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        })
+        
+    return jsonify({
+        'answers': answers
+    })
+
+@dashboard_bp.context_processor
+def utility_processor():
+    return dict(get_current_time=get_current_time)

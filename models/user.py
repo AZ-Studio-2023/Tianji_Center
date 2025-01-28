@@ -124,11 +124,11 @@ class Activity(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
-    type = db.Column(db.String(20), nullable=False)  # lucky_red_packet, fixed_red_packet, lottery
+    type = db.Column(db.String(20), nullable=False)  # lucky_red_packet, fixed_red_packet, lottery, metro_quiz
     config = db.Column(db.JSON, nullable=False)  # 活动配置
     start_time = db.Column(db.DateTime, nullable=False)
     end_time = db.Column(db.DateTime, nullable=False)
-    status = db.Column(db.String(20), default='active')  # active, ended
+    status = db.Column(db.String(20), default='active')  # active, drawing, ended
     created_at = db.Column(db.DateTime, default=get_default_time)
     
     participants = db.relationship('ActivityParticipant', backref='activity', lazy=True)
@@ -146,6 +146,7 @@ class ActivityParticipant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    answers = db.Column(db.JSON)  # 存储用户的答案
     reward = db.Column(db.JSON)  # 获得的奖励
     created_at = db.Column(db.DateTime, default=get_default_time)
 

@@ -16,6 +16,8 @@
                     拼手气红包
                     {% elif activity.type == 'fixed_red_packet' %}
                     固定红包
+                    {% elif activity.type == 'metro_quiz' %}
+                    地铁竞猜
                     {% else %}
                     抽奖活动
                     {% endif %}
@@ -24,6 +26,8 @@
                 <p>状态：
                     {% if activity.status == 'active' %}
                     <span class="text-green-500">进行中</span>
+                    {% elif activity.status == 'drawing' %}
+                    <span class="text-yellow-500">已开奖</span>
                     {% else %}
                     <span class="text-gray-500">已结束</span>
                     {% endif %}
@@ -31,6 +35,20 @@
             </div>
             
             {% if activity.status == 'active' %}
+            {% set current_time = get_current_time() %}
+            {% if current_time < activity.start_time %}
+            <div class="mt-4">
+                <div class="text-center p-4 bg-gray-50 rounded-lg">
+                    <p class="text-sm text-gray-600 mb-2">活动即将开始</p>
+                    <div class="countdown font-mono text-lg" data-start="{{ activity.start_time.timestamp()|int }}">
+                        <span class="days">00</span>天
+                        <span class="hours">00</span>时
+                        <span class="minutes">00</span>分
+                        <span class="seconds">00</span>秒
+                    </div>
+                </div>
+            </div>
+            {% else %}
             {% if activity.type == 'lucky_red_packet' %}
             <div class="mt-4">
                 <p class="text-sm text-gray-500">剩余：{{ activity.config.count - activity.participants|length }}/{{ activity.config.count }}</p>
@@ -53,6 +71,47 @@
                 </button>
                 {% else %}
                 <div class="mt-2 text-center text-gray-500">已领取</div>
+                {% endif %}
+            </div>
+            {% elif activity.type == 'metro_quiz' %}
+            <div class="mt-4">
+                <img src="{{ activity.config.image_url }}" alt="地铁竞猜图片" class="w-full rounded-lg mb-4">
+                {% if not activity.get_participant(current_user.id) %}
+                <form onsubmit="submitQuiz(event, {{ activity.id }})" class="space-y-4">
+                    <input type="text" name="city" placeholder="城市名" class="w-full border rounded px-3 py-2" required>
+                    <input type="text" name="line" placeholder="线路名" class="w-full border rounded px-3 py-2" required>
+                    <input type="text" name="direction" placeholder="运行方向" class="w-full border rounded px-3 py-2" required>
+                    <input type="text" name="station" placeholder="本站" class="w-full border rounded px-3 py-2" required>
+                    <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">
+                        提交答案
+                    </button>
+                </form>
+                {% else %}
+                <div class="space-y-2">
+                    <p class="text-gray-600">您的答案：</p>
+                    {% set participant = activity.get_participant(current_user.id) %}
+                    <p>城市名：{{ participant.answers.city }}</p>
+                    <p>线路名：{{ participant.answers.line }}</p>
+                    <p>运行方向：{{ participant.answers.direction }}</p>
+                    <p>本站：{{ participant.answers.station }}</p>
+                    
+                    {% if activity.status == 'drawing' or activity.status == 'ended' %}
+                    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <p class="font-semibold">正确答案：</p>
+                        <p>城市名：{{ activity.config.city_answer }}</p>
+                        <p>线路名：{{ activity.config.line_answer }}</p>
+                        <p>运行方向：{{ activity.config.direction_answer }}</p>
+                        <p>本站：{{ activity.config.station_answer }}</p>
+                        
+                        {% if participant.reward %}
+                        <p class="mt-2 text-green-600">
+                            恭喜获得 {{ participant.reward.amount }} 天际币！
+                            (答对 {{ participant.reward.correct_count }} 题)
+                        </p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
                 {% endif %}
             </div>
             {% else %}
@@ -104,5 +163,69 @@ function joinActivity(activityId) {
         console.error('Error:', error);
     });
 }
+
+function submitQuiz(event, activityId) {
+    event.preventDefault();
+    const form = event.target;
+    const data = {
+        city: form.city.value,
+        line: form.line.value,
+        direction: form.direction.value,
+        station: form.station.value
+    };
+    
+    fetch(`/dashboard/join-activity/${activityId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('答案提交成功', 'success');
+            setTimeout(() => location.reload(), 1500);
+        }
+    })
+    .catch(error => {
+        showToast('提交失败，请重试', 'error');
+    });
+}
+
+// 倒计时功能
+function updateCountdowns() {
+    const countdowns = document.querySelectorAll('.countdown');
+    const now = Math.floor(Date.now() / 1000);
+    
+    countdowns.forEach(countdown => {
+        const startTime = parseInt(countdown.dataset.start);
+        const diff = startTime - now;
+        
+        if (diff <= 0) {
+            // 如果时间到了，刷新页面
+            location.reload();
+            return;
+        }
+        
+        // 计算剩余时间
+        const days = Math.floor(diff / 86400);
+        const hours = Math.floor((diff % 86400) / 3600);
+        const minutes = Math.floor((diff % 3600) / 60);
+        const seconds = diff % 60;
+        
+        // 更新显示
+        countdown.querySelector('.days').textContent = String(days).padStart(2, '0');
+        countdown.querySelector('.hours').textContent = String(hours).padStart(2, '0');
+        countdown.querySelector('.minutes').textContent = String(minutes).padStart(2, '0');
+        countdown.querySelector('.seconds').textContent = String(seconds).padStart(2, '0');
+    });
+}
+
+// 每秒更新一次倒计时
+setInterval(updateCountdowns, 1000);
+updateCountdowns(); // 立即执行一次
 </script>
 {% endblock %} 

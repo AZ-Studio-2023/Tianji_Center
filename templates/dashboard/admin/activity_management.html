@@ -32,8 +32,12 @@
                         拼手气红包
                         {% elif activity.type == 'fixed_red_packet' %}
                         固定红包
-                        {% else %}
+                        {% elif activity.type == 'lottery' %}
                         抽奖活动
+                        {% elif activity.type == 'metro_quiz' %}
+                        地铁竞猜
+                        {% else %}
+                        未知
                         {% endif %}
                     </td>
                     <td class="px-6 py-4">
@@ -45,6 +49,10 @@
                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                             进行中
                         </span>
+                        {% elif activity.status == 'drawing' %}
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                            已开奖
+                        </span>
                         {% else %}
                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
                             已结束
@@ -53,9 +61,21 @@
                     </td>
                     <td class="px-6 py-4">{{ activity.participants|length }}</td>
                     <td class="px-6 py-4">
+                        {% if activity.type == 'metro_quiz' and activity.status == 'active' %}
+                        <button onclick="drawActivity({{ activity.id }})" 
+                                class="text-green-600 hover:text-green-800">
+                            开奖
+                        </button>
+                        {% elif activity.type == 'metro_quiz' and activity.status != 'active' %}
+                        <button onclick="viewAnswers({{ activity.id }})" 
+                                class="text-blue-600 hover:text-blue-800">
+                            查看答题记录
+                        </button>
+                        {% else %}
                         <button onclick="showParticipants('{{ activity.id }}')" class="text-blue-600 hover:text-blue-900">
                             查看参与记录
                         </button>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -80,6 +100,7 @@
                     <option value="lucky_red_packet">拼手气红包</option>
                     <option value="fixed_red_packet">固定红包</option>
                     <option value="lottery">抽奖活动</option>
+                    <option value="metro_quiz">地铁竞猜</option>
                 </select>
             </div>
             
@@ -119,6 +140,34 @@
                 <button type="button" onclick="addPrize()" class="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded">
                     添加奖品
                 </button>
+            </div>
+            
+            <!-- 地铁竞猜字段 -->
+            <div id="metroQuizFields" class="hidden space-y-4">
+                <div>
+                    <label class="block text-gray-700">图片URL</label>
+                    <input type="url" name="image_url" class="w-full border rounded px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-gray-700">每空奖励天际币</label>
+                    <input type="number" name="coins_per_answer" class="w-full border rounded px-3 py-2" min="1">
+                </div>
+                <div>
+                    <label class="block text-gray-700">城市名答案</label>
+                    <input type="text" name="city_answer" class="w-full border rounded px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-gray-700">线路名答案</label>
+                    <input type="text" name="line_answer" class="w-full border rounded px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-gray-700">运行方向答案</label>
+                    <input type="text" name="direction_answer" class="w-full border rounded px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-gray-700">本站答案</label>
+                    <input type="text" name="station_answer" class="w-full border rounded px-3 py-2">
+                </div>
             </div>
             
             <div>
@@ -190,6 +239,7 @@ function showTypeFields(type) {
     document.getElementById('luckyRedPacketFields').classList.add('hidden');
     document.getElementById('fixedRedPacketFields').classList.add('hidden');
     document.getElementById('lotteryFields').classList.add('hidden');
+    document.getElementById('metroQuizFields').classList.add('hidden');
     
     // 显示对应类型的字段
     if (type === 'lucky_red_packet') {
@@ -198,6 +248,8 @@ function showTypeFields(type) {
         document.getElementById('fixedRedPacketFields').classList.remove('hidden');
     } else if (type === 'lottery') {
         document.getElementById('lotteryFields').classList.remove('hidden');
+    } else if (type === 'metro_quiz') {
+        document.getElementById('metroQuizFields').classList.remove('hidden');
     }
 }
 
@@ -334,6 +386,90 @@ function formatReward(reward) {
     } else {
         return reward.name;
     }
+}
+
+function drawActivity(activityId) {
+    if (!confirm('确定要开奖吗？此操作不可撤销。')) {
+        return;
+    }
+    
+    fetch(`/dashboard/draw-activity/${activityId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('开奖成功', 'success');
+            setTimeout(() => location.reload(), 1500);
+        }
+    })
+    .catch(error => {
+        showToast('开奖失败，请重试', 'error');
+        console.error('Error:', error);
+    });
+}
+
+function viewAnswers(activityId) {
+    fetch(`/dashboard/activity-answers/${activityId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showToast(data.error, 'error');
+                return;
+            }
+            
+            // 创建答题记录表格
+            let html = `
+            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-white rounded-lg p-6 w-[800px] max-h-[80vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">答题记录</h3>
+                        <button onclick="this.closest('div.fixed').remove()" 
+                                class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead>
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">用户</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">答案</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">得分</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">提交时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.answers.map(record => `
+                                <tr>
+                                    <td class="px-6 py-4">${record.username}</td>
+                                    <td class="px-6 py-4">
+                                        城市：${record.answers.city}<br>
+                                        线路：${record.answers.line}<br>
+                                        方向：${record.answers.direction}<br>
+                                        车站：${record.answers.station}
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        ${record.reward ? `${record.reward.correct_count}题 / ${record.reward.amount}币` : '未开奖'}
+                                    </td>
+                                    <td class="px-6 py-4">${record.created_at}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+            
+            document.body.insertAdjacentHTML('beforeend', html);
+        })
+        .catch(error => {
+            showToast('加载失败，请重试', 'error');
+            console.error('Error:', error);
+        });
 }
 </script>
 {% endblock %} 
