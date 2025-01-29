@@ -215,17 +215,9 @@ def is_valid_uuid(uuid_string):
     except ValueError:
         return False
     return str(val) == uuid_string
+
 def check_username_exists(username):
-    url = f"https://forum.tjmtr.world/u/{username}/summary"
-    try:
-        response = requests.get(url, headers=headers)
-        if response.status_code == 404:
-            return False
-        else:
-            return True
-    except requests.RequestException as e:
-        print(f"请求出错: {e}")
-        return False
+    return True
     
 def auto_review_player_application(application, host, password, port):
     """
