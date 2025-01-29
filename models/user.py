@@ -208,6 +208,10 @@ def add_whiteList(username, player_uuid, host, password, port):
                 response_r = rcon.command(f'whitelist reload')
             rcon.disconnect()
             return
+    d.append({"uuid": player_uuid, "name": username})
+    f = open("C:\\Users\\Administrator\\Desktop\\tjmtr\\whitelist.json", "w")
+    f.write(json.dumps(d, indent=4))
+    f.close()
 
 def is_valid_uuid(uuid_string):
     try:
