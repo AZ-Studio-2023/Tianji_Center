@@ -20,10 +20,13 @@ class StructureShare(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     slot_id = db.Column(db.Integer, db.ForeignKey('structure_slots.id'), nullable=False)
-    name = db.Column(db.String(100), nullable=False)  # 结构名称
-    description = db.Column(db.Text)  # 结构介绍
-    downloads = db.Column(db.Integer, default=0)  # 下载次数
-    created_at = db.Column(db.DateTime, default=get_default_time)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    slot = db.relationship('StructureSlot', backref='shares')
+    user = db.relationship('User', backref='structure_shares')
 
 class SlotCard(db.Model):
     __tablename__ = 'slot_cards'
