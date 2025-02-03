@@ -45,7 +45,11 @@ def structure_square():
     shares = StructureShare.query.join(StructureSlot).filter(
         StructureSlot.current_structure.isnot(None)  # 确保槽位不为空
     ).order_by(StructureShare.created_at.desc()).all()
-    return render_template('dashboard/structures/structure_square.html', shares=shares)
+    return render_template('dashboard/structures/structure_square.html', 
+        shares=shares,
+        os=os,
+        config=current_app.config
+    )
 
 @structure_bp.route('/buy-slot', methods=['POST'])
 @login_required

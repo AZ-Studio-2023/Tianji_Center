@@ -28,7 +28,7 @@
                         <h3 class="text-lg font-medium text-gray-900">{{ share.name }}</h3>
                         <p class="text-sm text-gray-500">分享者: {{ share.user.username }}</p>
                     </div>
-                    {% set file_path = share.slot.current_structure and url_for('static', filename='structures/' + share.slot.id|string + '/' + share.slot.current_structure) %}
+                    {% set file_path = share.slot.current_structure and os.path.join(config['STRUCTURE_STORAGE_PATH'], share.slot.id|string, share.slot.current_structure) %}
                     {% if file_path %}
                         {% set file_size = (get_structure_size(file_path) + 0.5)|int %}
                         <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
