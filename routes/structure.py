@@ -386,30 +386,31 @@ def save_from_square(share_id):
     
     return jsonify({'message': '保存成功'})
 
-@structure_bp.route('/save-structure', methods=['POST'])
+@structure_bp.route('/save-structure/<int:share_id>', methods=['POST'])
 @login_required
-def save_structure():
-    structure_name = request.form.get('name')
-    if not structure_name:
-        return jsonify({'error': '请输入结构名称'})
-        
-    # 获取文件大小
+def save_structure(share_id):
+    share = StructureShare.query.get_or_404(share_id)
+    source_slot = share.slot
+    
+    if not source_slot.current_structure:
+        return jsonify({'error': '源结构不存在'})
+    
     file_path = os.path.join(
-        current_app.config['GAME_ROOT_PATH'],
-        'config/worldedit/schematics',
-        f'{structure_name}.schem'
+        current_app.config['STRUCTURE_STORAGE_PATH'],
+        str(source_slot.id),
+        source_slot.current_structure
     )
+    
     if not os.path.exists(file_path):
         return jsonify({'error': '找不到该结构'})
-        
+    
     file_size = get_structure_size(file_path)
     
     # 获取可用槽位
     available_slots = get_available_slots(current_user.id, file_size)
     if not available_slots:
         return jsonify({'error': '没有足够大的空槽位'})
-        
-    # 返回可用槽位列表
+    
     return jsonify({
         'slots': [{
             'id': slot.id,
@@ -499,4 +500,5 @@ def redeem_card():
         # 如果是唯一约束错误,说明用户重复使用
         if 'unique_card_usage' in str(e):
             return jsonify({'error': '您已经使用过这个兑换码了'})
+        return jsonify({'error': '兑换失败,请重试'}) 
         return jsonify({'error': '兑换失败,请重试'}) 
