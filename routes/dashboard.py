@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify, request, current_app, flash, url_for
+from flask import Blueprint, render_template, jsonify, request, current_app, flash, url_for, redirect
 from flask_login import login_required, current_user
 from models.user import (
     User, Application, CoinRecord, CheckIn, 
@@ -653,14 +653,37 @@ def oauth_accounts():
     return render_template('dashboard/oauth_accounts.html')
 
 # 管理员路由
-@dashboard_bp.route('/user-management')
+@dashboard_bp.route('/admin/users')
 @login_required
-def user_management():
+def admin_user_management():
     if not current_user.is_admin:
-        return jsonify({'error': '无权限'}), 403
-        
+        return redirect(url_for('dashboard.index'))
     users = User.query.all()
     return render_template('dashboard/admin/user_management.html', users=users)
+
+@dashboard_bp.route('/admin/applications')
+@login_required
+def admin_application_review():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard.index'))
+    applications = Application.query.all()
+    return render_template('dashboard/admin/application_review.html', applications=applications)
+
+@dashboard_bp.route('/admin/activities')
+@login_required
+def admin_activity_management():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard.index'))
+    activities = Activity.query.all()
+    return render_template('dashboard/admin/activity_management.html', activities=activities)
+
+@dashboard_bp.route('/admin/votes')
+@login_required
+def admin_vote_management():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard.index'))
+    votes = Vote.query.all()
+    return render_template('dashboard/admin/vote_management.html', votes=votes)
 
 @dashboard_bp.route('/update-user/<int:user_id>', methods=['POST'])
 @login_required
@@ -690,15 +713,6 @@ def update_user(user_id):
     
     db.session.commit()
     return jsonify({'message': '更新成功'})
-
-@dashboard_bp.route('/activity-management')
-@login_required
-def activity_management():
-    if not current_user.is_admin:
-        return jsonify({'error': '无权限'}), 403
-        
-    activities = Activity.query.order_by(Activity.created_at.desc()).all()
-    return render_template('dashboard/admin/activity_management.html', activities=activities)
 
 @dashboard_bp.route('/create-activity', methods=['POST'])
 @login_required
@@ -766,15 +780,6 @@ def create_activity():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)})
-
-@dashboard_bp.route('/vote-management')
-@login_required
-def vote_management():
-    if not current_user.is_admin:
-        return jsonify({'error': '无权限'}), 403
-        
-    votes = Vote.query.order_by(Vote.created_at.desc()).all()
-    return render_template('dashboard/admin/vote_management.html', votes=votes)
 
 @dashboard_bp.route('/create-vote', methods=['POST'])
 @login_required

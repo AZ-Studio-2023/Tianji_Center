@@ -1,0 +1,614 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}我的结构{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold text-gray-900">我的结构</h2>
+        <div class="flex space-x-4">
+            <!-- 兑换码按钮 -->
+            <button onclick="showRedeemModal()" 
+                    class="inline-flex items-center px-4 py-2 border border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50 transition-colors">
+                <i class="fas fa-ticket-alt mr-2"></i>
+                使用兑换码
+            </button>
+            <!-- 购买按钮 -->
+            <button onclick="showBuyModal()"
+                    class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                <i class="fas fa-plus mr-2"></i>
+                购买新槽位
+            </button>
+        </div>
+    </div>
+
+    {% if not slots %}
+    <!-- 空状态 -->
+    <div class="text-center py-12">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-4">
+            <i class="fas fa-cubes text-2xl text-blue-500"></i>
+        </div>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">还没有结构槽</h3>
+        <p class="text-gray-500 mb-6">购买一个结构槽或使用兑换码来开始使用</p>
+        <div class="space-x-4">
+            <button onclick="showRedeemModal()" 
+                    class="inline-flex items-center px-4 py-2 border border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50">
+                <i class="fas fa-ticket-alt mr-2"></i>
+                使用兑换码
+            </button>
+            <button onclick="showBuyModal()"
+                    class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                <i class="fas fa-plus mr-2"></i>
+                购买新槽位
+            </button>
+        </div>
+    </div>
+    {% else %}
+    <!-- 结构槽列表 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for slot in slots %}
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900">槽位 #{{ slot.id }}</h3>
+                        <p class="text-sm text-gray-500">{{ slot.size }}KB</p>
+                    </div>
+                    <button onclick="showUpgradeModal({{ slot.id }}, {{ slot.size }}, {{ slot.remaining_clears }})"
+                            class="text-sm text-blue-600 hover:text-blue-700">
+                        <i class="fas fa-arrow-up"></i> 升级
+                    </button>
+                </div>
+                
+                {% if slot.current_structure %}
+                <div class="space-y-3">
+                    <p class="text-sm text-gray-600">当前结构: {{ slot.current_structure }}</p>
+                    <div class="flex space-x-2">
+                        <button onclick="downloadStructure({{ slot.id }})"
+                                class="flex-1 px-3 py-2 text-sm text-blue-600 bg-blue-50 rounded hover:bg-blue-100">
+                            <i class="fas fa-download mr-1"></i> 下载
+                        </button>
+                        <button onclick="shareStructure({{ slot.id }})"
+                                class="flex-1 px-3 py-2 text-sm text-green-600 bg-green-50 rounded hover:bg-green-100">
+                            <i class="fas fa-share-alt mr-1"></i> 分享
+                        </button>
+                        <button onclick="syncToGame({{ slot.id }})"
+                                class="flex-1 px-3 py-2 text-sm text-purple-600 bg-purple-50 rounded hover:bg-purple-100">
+                            <i class="fas fa-sync mr-1"></i> 同步
+                        </button>
+                    </div>
+                    <button onclick="clearSlot({{ slot.id }})"
+                            class="w-full px-3 py-2 text-sm text-red-600 bg-red-50 rounded hover:bg-red-100">
+                        <i class="fas fa-trash mr-1"></i> 清空槽位 (剩余{{ slot.remaining_clears }}次)
+                    </button>
+                </div>
+                {% else %}
+                <div class="text-center py-6">
+                    <button class="upload-button inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 cursor-pointer hover:bg-gray-50"
+                            data-slot-id="{{ slot.id }}"
+                            onclick="showUploadModal({{ slot.id }})">
+                        <i class="fas fa-upload mr-2"></i>
+                        上传结构
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            <div class="bg-gray-50 px-6 py-3 text-sm text-gray-500">
+                剩余清空次数: {{ slot.remaining_clears }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- 购买模态框 -->
+<div id="buyModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b">
+            <h3 class="text-lg font-medium text-gray-900">购买结构槽</h3>
+        </div>
+        <div class="p-6">
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    槽位大小: <span id="buySizeValue">100</span>KB
+                </label>
+                <div class="flex items-center space-x-4">
+                    <input type="range" id="slotSize" min="5" max="500" step="5" value="100"
+                           class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                           oninput="updateBuySize(this.value)">
+                </div>
+                <p class="mt-1 text-sm text-gray-500">拖动滑块选择大小 (5-500KB)</p>
+            </div>
+            
+            <div class="bg-blue-50 p-4 rounded-lg mb-6">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-blue-700">需要天际币:</span>
+                    <span class="text-lg font-medium text-blue-700" id="coinCost">180</span>
+                </div>
+            </div>
+            
+            <div class="text-right space-x-3">
+                <button onclick="closeBuyModal()"
+                        class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+                    取消
+                </button>
+                <button onclick="buySlot()"
+                        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                    购买
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 兑换模态框 -->
+<div id="redeemModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b">
+            <h3 class="text-lg font-medium text-gray-900">使用兑换码</h3>
+        </div>
+        <div class="p-6">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    兑换码
+                </label>
+                <input type="text" id="redeemCode" 
+                       class="w-full px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                       placeholder="输入兑换码">
+            </div>
+            <div class="text-right space-x-3">
+                <button onclick="closeRedeemModal()"
+                        class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+                    取消
+                </button>
+                <button onclick="redeemCard()"
+                        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                    兑换
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 升级模态框 -->
+<div id="upgradeModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b">
+            <h3 class="text-lg font-medium text-gray-900">升级槽位</h3>
+        </div>
+        <div class="p-6">
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    新槽位大小: <span id="upgradeSizeValue">100</span>KB
+                </label>
+                <div class="flex items-center space-x-4">
+                    <input type="range" id="upgradeSize" min="5" max="500" step="5" value="100"
+                           class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                           oninput="updateUpgradeSize(this.value)">
+                </div>
+                <p class="mt-1 text-sm text-gray-500">拖动滑块选择新大小</p>
+            </div>
+            
+            <div class="bg-blue-50 p-4 rounded-lg mb-6">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-blue-700">需要天际币:</span>
+                    <span class="text-lg font-medium text-blue-700" id="upgradeCost">0</span>
+                </div>
+            </div>
+            
+            <div class="text-right space-x-3">
+                <button onclick="closeUpgradeModal()"
+                        class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+                    取消
+                </button>
+                <button onclick="upgradeSlot()"
+                        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                    升级
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 上传结构模态框 -->
+<div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b">
+            <h3 class="text-lg font-medium text-gray-900">上传结构</h3>
+        </div>
+        <div class="p-6 space-y-6">
+            <!-- 本地上传 -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">本地文件上传</label>
+                <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-blue-500 transition-colors cursor-pointer"
+                     onclick="document.getElementById('localFile').click()">
+                    <div class="space-y-1 text-center">
+                        <i class="fas fa-upload text-gray-400 text-3xl mb-3"></i>
+                        <div class="text-sm text-gray-600">
+                            <label class="relative cursor-pointer text-blue-600 hover:text-blue-700">
+                                <span id="fileNameDisplay">选择文件</span>
+                                <input id="localFile" type="file" class="sr-only" accept=".schem" onchange="updateFileName(this)">
+                            </label>
+                            <p class="text-gray-500">或拖放文件到此处</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-2 bg-white text-gray-500">或</span>
+                </div>
+            </div>
+
+            <!-- 游戏内结构绑定 -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">绑定游戏内结构</label>
+                <input type="text" id="structureName" 
+                       class="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                       placeholder="输入结构名称">
+                <p class="mt-1 text-xs text-gray-500">将从游戏目录的 /config/worldedit/schematics 中查找对应的结构文件</p>
+            </div>
+        </div>
+        
+        <div class="px-6 py-4 bg-gray-50 border-t flex justify-end space-x-3">
+            <button onclick="closeUploadModal()" 
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                取消
+            </button>
+            <button onclick="submitUpload()" 
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700">
+                上传
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 分享结构模态框 -->
+<div id="shareModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b">
+            <h3 class="text-lg font-medium text-gray-900">分享结构</h3>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">结构名称</label>
+                <input type="text" id="shareName" 
+                       class="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                       placeholder="给结构起个名字">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">结构介绍</label>
+                <textarea id="shareDescription" rows="4"
+                         class="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                         placeholder="介绍一下这个结构"></textarea>
+            </div>
+        </div>
+        <div class="px-6 py-4 bg-gray-50 border-t flex justify-end space-x-3">
+            <button onclick="closeShareModal()" 
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                取消
+            </button>
+            <button onclick="submitShare()" 
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700">
+                分享
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+function showBuyModal() {
+    document.getElementById('buyModal').classList.remove('hidden');
+    document.getElementById('buyModal').classList.add('flex');
+}
+
+function closeBuyModal() {
+    document.getElementById('buyModal').classList.add('hidden');
+    document.getElementById('buyModal').classList.remove('flex');
+}
+
+function showRedeemModal() {
+    document.getElementById('redeemModal').classList.remove('hidden');
+    document.getElementById('redeemModal').classList.add('flex');
+}
+
+function closeRedeemModal() {
+    document.getElementById('redeemModal').classList.add('hidden');
+    document.getElementById('redeemModal').classList.remove('flex');
+}
+
+function updateBuySize(value) {
+    document.getElementById('buySizeValue').textContent = value;
+    // 修改购买计费公式: (大小/5) * 5
+    const coins = Math.floor(value / 5) * 5;
+    document.getElementById('coinCost').textContent = coins;
+}
+
+function buySlot() {
+    const size = parseInt(document.getElementById('slotSize').value);
+    if (!size || size < 5 || size > 500 || size % 5 !== 0) {
+        showToast('请输入有效的槽位大小', 'error');
+        return;
+    }
+    
+    fetch('{{ url_for("structure.buy_slot") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ size })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('购买成功', 'success');
+            closeBuyModal();
+            location.reload();
+        }
+    })
+    .catch(() => {
+        showToast('购买失败，请重试', 'error');
+    });
+}
+
+function redeemCard() {
+    const code = document.getElementById('redeemCode').value.trim();
+    if (!code) {
+        showToast('请输入兑换码', 'error');
+        return;
+    }
+    
+    fetch('{{ url_for("structure.redeem_card") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ code })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('兑换成功', 'success');
+            closeRedeemModal();
+            location.reload();
+        }
+    })
+    .catch(() => {
+        showToast('兑换失败，请重试', 'error');
+    });
+}
+
+let currentSlotId = null;
+let currentSlotSize = null;
+let currentSlotClears = null;
+
+function showUpgradeModal(slotId, currentSize, remainingClears) {
+    currentSlotId = slotId;
+    currentSlotSize = currentSize;
+    currentSlotClears = remainingClears;
+    
+    document.getElementById('upgradeSize').value = currentSize;
+    document.getElementById('upgradeSizeValue').textContent = currentSize;
+    updateUpgradeSize(currentSize);
+    
+    document.getElementById('upgradeModal').classList.remove('hidden');
+    document.getElementById('upgradeModal').classList.add('flex');
+}
+
+function closeUpgradeModal() {
+    currentSlotId = null;
+    currentSlotSize = null;
+    currentSlotClears = null;
+    document.getElementById('upgradeModal').classList.add('hidden');
+    document.getElementById('upgradeModal').classList.remove('flex');
+}
+
+function updateUpgradeSize(value) {
+    document.getElementById('upgradeSizeValue').textContent = value;
+    const additionalSize = Math.max(0, value - currentSlotSize);
+    const coins = Math.floor(additionalSize / 5) * currentSlotClears;
+    document.getElementById('upgradeCost').textContent = coins;
+}
+
+function upgradeSlot() {
+    const newSize = parseInt(document.getElementById('upgradeSize').value);
+    if (newSize <= currentSlotSize) {
+        showToast('新大小必须大于当前大小', 'error');
+        return;
+    }
+    
+    fetch(`/structure/upgrade-slot/${currentSlotId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ size: newSize })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('升级成功', 'success');
+            closeUpgradeModal();
+            location.reload();
+        }
+    })
+    .catch(() => {
+        showToast('升级失败，请重试', 'error');
+    });
+}
+
+let currentUploadSlotId = null;
+
+function showUploadModal(slotId) {
+    currentUploadSlotId = slotId;
+    document.getElementById('uploadModal').classList.remove('hidden');
+    document.getElementById('uploadModal').classList.add('flex');
+}
+
+function closeUploadModal() {
+    currentUploadSlotId = null;
+    document.getElementById('uploadModal').classList.add('hidden');
+    document.getElementById('uploadModal').classList.remove('flex');
+    // 清空输入
+    document.getElementById('localFile').value = '';
+    document.getElementById('structureName').value = '';
+}
+
+function submitUpload() {
+    const localFile = document.getElementById('localFile').files[0];
+    const structureName = document.getElementById('structureName').value.trim();
+    
+    if (!localFile && !structureName) {
+        showToast('请选择文件或输入结构名称', 'error');
+        return;
+    }
+    
+    const formData = new FormData();
+    if (localFile) {
+        formData.append('type', 'local');
+        formData.append('file', localFile);
+    } else {
+        formData.append('type', 'game');
+        formData.append('structure_name', structureName);
+    }
+    
+    fetch(`/structure/upload-structure/${currentUploadSlotId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('上传成功', 'success');
+            closeUploadModal();
+            location.reload();
+        }
+    })
+    .catch(() => {
+        showToast('上传失败，请重试', 'error');
+    });
+}
+
+function updateFileName(input) {
+    const display = document.getElementById('fileNameDisplay');
+    if (input.files && input.files[0]) {
+        display.textContent = input.files[0].name;
+    } else {
+        display.textContent = '选择文件';
+    }
+}
+
+function clearSlot(slotId) {
+    if (!confirm('确定要清空这个槽位吗？')) {
+        return;
+    }
+    
+    fetch(`/structure/clear-slot/${slotId}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('清空成功', 'success');
+            location.reload();
+        }
+    })
+    .catch(() => {
+        showToast('清空失败，请重试', 'error');
+    });
+}
+
+// 修改结构槽的上传按钮点击事件
+document.querySelectorAll('.upload-button').forEach(button => {
+    button.onclick = () => showUploadModal(button.dataset.slotId);
+});
+
+function downloadStructure(slotId) {
+    fetch(`/structure/download-structure/${slotId}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            window.location.href = data.download_url;  // 直接跳转到下载链接
+        }
+    })
+    .catch(() => {
+        showToast('下载失败，请重试', 'error');
+    });
+}
+
+function syncToGame(slotId) {
+    fetch(`/structure/sync-to-game/${slotId}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('同步成功', 'success');
+        }
+    })
+    .catch(() => {
+        showToast('同步失败，请重试', 'error');
+    });
+}
+
+function shareStructure(slotId) {
+    // 显示分享模态框
+    currentShareSlotId = slotId;
+    document.getElementById('shareModal').classList.remove('hidden');
+    document.getElementById('shareModal').classList.add('flex');
+}
+
+function submitShare() {
+    const name = document.getElementById('shareName').value.trim();
+    const description = document.getElementById('shareDescription').value.trim();
+    
+    if (!name || !description) {
+        showToast('请填写结构名称和介绍', 'error');
+        return;
+    }
+    
+    fetch(`/structure/share-structure/${currentShareSlotId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name, description })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('分享成功', 'success');
+            closeShareModal();
+        }
+    })
+    .catch(() => {
+        showToast('分享失败，请重试', 'error');
+    });
+}
+</script>
+{% endblock %} 

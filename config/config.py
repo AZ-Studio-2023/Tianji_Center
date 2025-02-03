@@ -76,3 +76,7 @@ class Config:
     # 资源包配置
     RESOURCE_PACKS = eval(os.getenv('RESOURCE_PACKS', '[]'))
 
+    # 结构文件配置
+    STRUCTURE_STORAGE_PATH = os.getenv('STRUCTURE_STORAGE_PATH')  # 结构存储目录
+    GAME_ROOT_PATH = os.getenv('GAME_ROOT_PATH')  # 游戏根目录
+
