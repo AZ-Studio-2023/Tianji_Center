@@ -10,9 +10,29 @@ from werkzeug.utils import secure_filename
 
 structure_bp = Blueprint('structure', __name__)
 
+@structure_bp.app_template_global()
 def get_structure_size(file_path):
     """获取结构文件大小(KB)"""
-    return os.path.getsize(file_path) / 1024
+    try:
+        return os.path.getsize(file_path) / 1024
+    except:
+        return 0
+
+def get_available_slots(user_id, file_size):
+    """获取用户可用的空槽位
+    
+    Args:
+        user_id: 用户ID
+        file_size: 文件大小(KB)
+        
+    Returns:
+        list: 可用的槽位列表
+    """
+    return StructureSlot.query.filter(
+        StructureSlot.user_id == user_id,
+        StructureSlot.current_structure.is_(None),  # 槽位为空
+        StructureSlot.size >= file_size  # 槽位大小足够
+    ).all()
 
 @structure_bp.route('/my-structures')
 @login_required
@@ -22,7 +42,9 @@ def my_structures():
 
 @structure_bp.route('/structure-square')
 def structure_square():
-    shares = StructureShare.query.order_by(StructureShare.created_at.desc()).all()
+    shares = StructureShare.query.join(StructureSlot).filter(
+        StructureSlot.current_structure.isnot(None)  # 确保槽位不为空
+    ).order_by(StructureShare.created_at.desc()).all()
     return render_template('dashboard/structures/structure_square.html', shares=shares)
 
 @structure_bp.route('/buy-slot', methods=['POST'])
@@ -248,6 +270,12 @@ def download_structure(slot_id):
     if slot.user_id != current_user.id:
         return jsonify({'error': '无权下载此结构'})
     
+    # 如果是从广场下载，增加下载量
+    share = StructureShare.query.filter_by(slot_id=slot_id).first()
+    if share:
+        share.downloads += 1
+        db.session.commit()
+    
     # 检查下载次数限制
     download_key = f'structure_download:{current_user.id}'
     download_count = redis.get(download_key)
@@ -262,10 +290,10 @@ def download_structure(slot_id):
     if download_count:
         redis.incr(download_key)
     else:
-        redis.setex(download_key, 3600, '1')  # 1小时过期
+        redis.setex(download_key, 3600, '1') 
         
     return jsonify({
-        'download_url': url_for('structure.download_file', token=token, _external=True)
+        'download_url': url_for('structure.download_file', token=token, _external=True).replace('http://', 'https://')
     })
 
 @structure_bp.route('/download-file/<token>')
@@ -300,6 +328,9 @@ def share_structure(slot_id):
     slot = StructureSlot.query.get_or_404(slot_id)
     if slot.user_id != current_user.id:
         return jsonify({'error': '无权分享此结构'})
+    
+    if not slot.current_structure:
+        return jsonify({'error': '空槽位无法分享'})
     
     name = request.json.get('name')
     description = request.json.get('description')
@@ -354,6 +385,37 @@ def save_from_square(share_id):
     db.session.commit()
     
     return jsonify({'message': '保存成功'})
+
+@structure_bp.route('/save-structure', methods=['POST'])
+@login_required
+def save_structure():
+    structure_name = request.form.get('name')
+    if not structure_name:
+        return jsonify({'error': '请输入结构名称'})
+        
+    # 获取文件大小
+    file_path = os.path.join(
+        current_app.config['GAME_ROOT_PATH'],
+        'config/worldedit/schematics',
+        f'{structure_name}.schem'
+    )
+    if not os.path.exists(file_path):
+        return jsonify({'error': '找不到该结构'})
+        
+    file_size = get_structure_size(file_path)
+    
+    # 获取可用槽位
+    available_slots = get_available_slots(current_user.id, file_size)
+    if not available_slots:
+        return jsonify({'error': '没有足够大的空槽位'})
+        
+    # 返回可用槽位列表
+    return jsonify({
+        'slots': [{
+            'id': slot.id,
+            'size': slot.size
+        } for slot in available_slots]
+    })
 
 # 管理员功能
 @structure_bp.route('/admin/cards', methods=['GET', 'POST'])

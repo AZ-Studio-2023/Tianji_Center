@@ -22,8 +22,9 @@ class StructureShare(db.Model):
     slot_id = db.Column(db.Integer, db.ForeignKey('structure_slots.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_default_time)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    downloads = db.Column(db.Integer, default=0)  # 下载次数
     
     slot = db.relationship('StructureSlot', backref='shares')
     user = db.relationship('User', backref='structure_shares')
