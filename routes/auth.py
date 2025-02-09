@@ -416,6 +416,27 @@ def check_creative_permission(uid):
             return True
     return False
 
+@auth_bp.route('/query_data', methods=['POST'])
+def query_data_by_wh():
+    """通过QQ号查询用户信息"""
+    data = request.get_json()
+    wenhao = data.get('wh')
+    key = data.get('key')
+
+    if not key or key != current_app.config['KEY']:
+        return jsonify({'error': '密钥错误'}), 403
+        
+    if not wenhao:
+        return jsonify({'error': '请提供批准文号'}), 400
+    if "城" in wenhao:
+        app = Application.query.filter_by(form_type='city').all()
+    else:
+        app = Application.query.filter_by(form_type='line').all()
+    for a in app:
+        if wenhao in a.remark:
+            return jsonify({'data': a.content})
+    return jsonify({'error': '未找到该批准文号'}), 404
+
 @auth_bp.route('/query_user', methods=['POST'])
 def query_user_by_qq():
     """通过QQ号查询用户信息"""

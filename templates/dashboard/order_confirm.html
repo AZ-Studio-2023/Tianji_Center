@@ -1,0 +1,134 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}确认订单{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <h2 class="text-2xl font-bold">确认订单</h2>
+    
+    <!-- 申请列表 -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="space-y-4" id="applicationList">
+            <!-- 由JavaScript动态填充 -->
+        </div>
+    </div>
+    
+    <!-- 费用明细 -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-medium mb-4">费用明细</h3>
+        <div class="space-y-2">
+            <div class="flex justify-between">
+                <span>总金额</span>
+                <span id="totalAmount">0</span>
+            </div>
+            <div class="flex justify-between text-green-600" id="subsidyRow" style="display:none">
+                <span>补贴金额</span>
+                <span id="subsidyAmount">0</span>
+            </div>
+            <div class="flex justify-between font-bold">
+                <span>应付金额</span>
+                <span id="finalAmount">0</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="flex justify-end space-x-4">
+        <button onclick="history.back()" 
+                class="px-4 py-2 border rounded-lg hover:bg-gray-50">
+            返回修改
+        </button>
+        <button onclick="submitOrder()"
+                class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+            确认提交
+        </button>
+    </div>
+</div>
+
+<script>
+// 从localStorage获取申请列表
+const applications = JSON.parse(localStorage.getItem('applicationList') || '[]');
+
+// 渲染申请列表
+function renderApplications() {
+    const list = document.getElementById('applicationList');
+    list.innerHTML = applications.map((app, index) => `
+        <div class="flex justify-between items-center p-4 border rounded-lg">
+            <div>
+                <h4 class="font-medium">${app.type === 'line' ? '线路申请' : '城市申请'}</h4>
+                <p class="text-sm text-gray-500">
+                    ${app.type === 'line' ? app.content.line_name_cn : app.content.city_name_cn}
+                </p>
+            </div>
+            <div class="text-right">
+                <div class="font-medium">${app.fee} 天际币</div>
+                <button onclick="removeApplication(${index})" 
+                        class="text-sm text-red-600 hover:text-red-700">
+                    删除
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    calculateFees();
+}
+
+// 计算费用
+function calculateFees() {
+    const totalAmount = applications.reduce((sum, app) => sum + app.fee, 0);
+    document.getElementById('totalAmount').textContent = totalAmount;
+    
+    // 检查是否符合补贴条件
+    fetch('/dashboard/check-subsidy', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({applications})
+    })
+    .then(res => res.json())
+    .then(data => {
+        const subsidyRow = document.getElementById('subsidyRow');
+        const subsidyAmount = document.getElementById('subsidyAmount');
+        const finalAmount = document.getElementById('finalAmount');
+        
+        if (data.subsidy > 0) {
+            subsidyRow.style.display = 'flex';
+            subsidyAmount.textContent = `-${data.subsidy}`;
+            finalAmount.textContent = totalAmount - data.subsidy;
+        } else {
+            subsidyRow.style.display = 'none';
+            finalAmount.textContent = totalAmount;
+        }
+    });
+}
+
+// 删除申请
+function removeApplication(index) {
+    applications.splice(index, 1);
+    localStorage.setItem('applicationList', JSON.stringify(applications));
+    renderApplications();
+}
+
+// 提交订单
+function submitOrder() {
+    fetch('/dashboard/submit-order', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({applications})
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('提交成功', 'success');
+            localStorage.removeItem('applicationList');
+            setTimeout(() => {
+                location.href = '/dashboard/applications';
+            }, 1500);
+        }
+    });
+}
+
+// 初始渲染
+renderApplications();
+</script>
+{% endblock %} 
