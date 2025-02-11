@@ -10,16 +10,16 @@
             <!-- 左侧头像区域 -->
             <div class="flex-shrink-0 relative">
                 <img src="{{ current_user.avatar_url }}" class="w-32 h-32 rounded-full ring-4 ring-gray-50">
-                <button onclick="toggleAvatarMenu()" 
+                <button onclick="toggleAvatarMenu()"
                         class="absolute bottom-1 right-1 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
                 </button>
-                
+
                 <!-- 头像选择菜单 -->
                 <div id="avatarMenu" class="hidden absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-10">
-                    <button onclick="updateAvatar('cravatar')" 
+                    <button onclick="updateAvatar('cravatar')"
                             class="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 {% if current_user.avatar_type == 'cravatar' %}text-blue-600{% else %}text-gray-700{% endif %}">
                         使用Cravatar头像
                     </button>
@@ -38,7 +38,7 @@
                     <h2 class="text-2xl font-bold text-gray-900">{{ current_user.username }}</h2>
                     <p class="text-gray-500">{{ current_user.email }}</p>
                 </div>
-                
+
                 <div class="grid grid-cols-3 gap-4 text-center">
                     <div class="bg-gray-50 rounded-lg p-4">
                         <div class="text-2xl font-bold text-blue-600">{{ current_user.coins }}</div>
@@ -76,8 +76,13 @@
             </div>
             {% endif %}
             {% if qq_code %}
-            <div class="bg-gray-50 rounded-lg p-4">
-                <div class="text-lg font-mono text-center">{{ qq_code }}</div>
+            <div class="relative bg-gray-50 rounded-lg p-4">
+                <button onclick="copyQQCode()" class="absolute top-2 right-2 bg-gray-200 px-2 py-1 rounded text-sm hover:bg-gray-300">
+                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8m-8 4h8m-8 4h5m-6 5h10a2 2 0 002-2V7a2 2 0 00-2-2H9.5L6 7v10a2 2 0 002 2z" />
+                    </svg>
+                </button>
+                <div class="text-lg font-mono text-center" id="qqCode">{{ qq_code }}</div>
                 <div class="text-sm text-gray-500 text-center">有效期至：{{ qq_code_expires_at|datetime }}</div>
             </div>
             {% endif %}
@@ -92,7 +97,7 @@
             <!-- 原邮箱验证 -->
             <div class="space-y-4">
                 <div class="flex space-x-3">
-                    <input type="text" name="old_code" 
+                    <input type="text" name="old_code"
                            class="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                            placeholder="原邮箱验证码" required>
                     <button type="button" onclick="sendCode(this, true)"
@@ -104,11 +109,11 @@
 
             <!-- 新邮箱设置 -->
             <div class="space-y-4">
-                <input type="email" name="new_email" 
+                <input type="email" name="new_email"
                        class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                        placeholder="新邮箱地址" required>
                 <div class="flex space-x-3">
-                    <input type="text" name="new_code" 
+                    <input type="text" name="new_code"
                            class="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                            placeholder="新邮箱验证码" required>
                     <button type="button" onclick="sendCode(this, false)"
@@ -118,7 +123,7 @@
                 </div>
             </div>
 
-            <button type="submit" 
+            <button type="submit"
                     class="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                 确认修改
             </button>
@@ -132,7 +137,7 @@
 function toggleAvatarMenu() {
     const menu = document.getElementById('avatarMenu');
     menu.classList.toggle('hidden');
-    
+
     // 点击其他地方关闭菜单
     document.addEventListener('click', function closeMenu(e) {
         if (!e.target.closest('.relative')) {
@@ -170,11 +175,11 @@ function sendCode(btn, isOldEmail) {
         showToast('请输入邮箱', 'error');
         return;
     }
-    
+
     btn.disabled = true;
     const originalText = btn.textContent;
     btn.textContent = '发送中...';
-    
+
     fetch('{{ url_for("auth.send_code") }}', {
         method: 'POST',
         headers: {
@@ -210,10 +215,10 @@ function updateEmail(event) {
     const submitBtn = form.querySelector('button[type="submit"]');
     const formData = new FormData(form);
     formData.append('action', 'update_email');
-    
+
     submitBtn.disabled = true;
     submitBtn.textContent = '修改中...';
-    
+
     fetch('{{ url_for("dashboard.profile") }}', {
         method: 'POST',
         body: formData
@@ -244,5 +249,14 @@ function getQQCode() {
         }
     });
 }
+
+function copyQQCode() {
+    const codeElement = document.getElementById("qqCode");
+    navigator.clipboard.writeText("/绑定 " + codeElement.innerText).then(() => {
+        showToast('已复制 QQ 校验码指令，可以直接粘贴指令并发送', 'success');
+    }).catch(err => {
+        alert(err.error, 'error');
+    });
+}
 </script>
-{% endblock %} 
+{% endblock %}
