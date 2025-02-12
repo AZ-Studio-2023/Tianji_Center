@@ -667,6 +667,8 @@ def admin_application_review():
     if not current_user.is_admin:
         return redirect(url_for('dashboard.index'))
     applications = Application.query.all()
+    for app in applications:
+        app.type_name = FORM_TYPE_NAMES.get(app.form_type, app.form_type)
     return render_template('dashboard/admin/application_review.html', applications=applications)
 
 @dashboard_bp.route('/admin/activities')
