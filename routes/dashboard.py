@@ -20,6 +20,8 @@ import hashlib
 import uuid
 import requests, mcrcon
 from utils.geetest import verify_geetest
+from sqlalchemy.orm import scoped_session, sessionmaker
+
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -1128,11 +1130,52 @@ def delete_oauth_app(id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)})
+    
+
+def background_review(application_id, user_id, config, Session):
+    """后台审核任务"""
+    with current_app.app_context():
+        db_session = Session()
+        try:
+            application = db_session.query(Application).get(application_id)
+            user = db_session.query(User).get(user_id)
+            
+            # 进行审核
+            passed, notes = auto_review_player_application(application, config['MCRCON_HOST'], config['MCRCON_PASSWORD'], config['MCRCON_PORT'])
+            
+            if passed == None:
+                application.status = 'pending'
+            elif passed == False:
+                application.status = 'rejected'
+            else:
+                application.status = 'approved'
+                
+            application.remark = notes
+            application.reviewed_at = datetime.now(pytz.timezone('Asia/Shanghai'))
+            application.reviewer_id = None  # 自动审核
+            
+            if passed == True:
+                if application.content['permission'] == '创造者权限（OP2）' and user.role != 'admin':
+                    user.role = 'creator'
+                elif application.content['permission'] == '仅旁观' and user.role != 'admin' and user.role != 'creator' and user.role != 'player':
+                    user.role = 'visitor'
+                elif application.content['permission'] == '仅生存' or application.content['permission'] == '仅创造' and user.role != 'admin' and user.role != 'creator':
+                    user.role = 'player'
+                    
+            db_session.commit()
+            
+        except Exception as e:
+            db_session.rollback()
+            current_app.logger.error(f"后台审核任务失败: {str(e)}")
+        finally:
+            db_session.close()
+
+
 
 @dashboard_bp.route('/quick-review/<int:id>', methods=['POST'])
-@login_required
+@login_required 
 def quick_review(id):
-    """快速审核（花费30天际币）"""
+    """快速审核(花费30天际币)"""
     # 检查天际币余额
     if current_user.coins < 30:
         return jsonify({'error': '天际币余额不足'})
@@ -1151,45 +1194,31 @@ def quick_review(id):
     # 检查是否是玩家权限申请
     if application.form_type != 'player':
         return jsonify({'error': '只能快速审核玩家权限申请'})
+
+    # 克隆必要的配置参数
+    config = {
+        'MCRCON_HOST': current_app.config['MCRCON_HOST'],
+        'MCRCON_PASSWORD': current_app.config['MCRCON_PASSWORD'], 
+        'MCRCON_PORT': current_app.config['MCRCON_PORT']
+    }
+    
+    # 扣除天际币
+    current_user.coins -= 30
+    
+    # 记录天际币消费
+    coin_record = CoinRecord(
+        user_id=current_user.id,
+        amount=-30,
+        reason='快速审核申请'
+    )
+    db.session.add(coin_record)
+    application.remark = "已提交请求，请稍后"
     
     try:
-        # 扣除天际币
-        current_user.coins -= 30
-        
-        # 记录天际币消费
-        coin_record = CoinRecord(
-            user_id=current_user.id,
-            amount=-30,
-            reason='快速审核申请'
-        )
-        db.session.add(coin_record)
-        
-        # 进行审核
-        passed, notes = auto_review_player_application(application, current_app.config['MCRCON_HOST'], current_app.config['MCRCON_PASSWORD'], current_app.config['MCRCON_PORT'])
-        if passed == None:
-            application.status = 'pending'
-        elif passed == False:
-            application.status = 'rejected'
-        else:
-            application.status = 'approved'
-        application.remark = notes
-        application.reviewed_at = datetime.now(pytz.timezone('Asia/Shanghai'))
-        application.reviewer_id = None  # 自动审核
-        if passed == True:
-            if application.content['permission'] == '创造者权限（OP2）' and current_user.role != 'admin':
-                current_user.role = 'creator'
-            elif application.content['permission'] == '仅旁观' and current_user.role != 'admin' and current_user.role != 'creator' and current_user.role != 'player':
-                current_user.role = 'visitor'
-            elif application.content['permission'] == '仅生存' or application.content['permission'] == '仅创造' and current_user.role != 'admin' and current_user.role != 'creator':
-                current_user.role = 'player'
         db.session.commit()
-        
-        return jsonify({
-            'message': '快速审核完成',
-            'status': application.status,
-            'notes': notes
-        })
-        
+        Session = scoped_session(sessionmaker(bind=db.engine))
+        background_review(application.id, current_user.id, config, Session)
+        return jsonify({'message': '审核完毕'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)})

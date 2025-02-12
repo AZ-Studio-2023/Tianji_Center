@@ -143,7 +143,7 @@ function closeModal(modalId) {
 
 function quickReview(id) {
     if (!confirm('确定要花费30天际币进行快速审核吗？')) return;
-    
+    showToast("请求已提交，大约需要30秒，请不要离开页面", 'success');
     fetch(`/dashboard/quick-review/${id}`, {
         method: 'POST'
     })

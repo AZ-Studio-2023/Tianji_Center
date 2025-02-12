@@ -8,12 +8,7 @@ import hashlib
 import time
 from openai import OpenAI
 
-headers = {
-    'User-Agent': 'tjb',
-    "Api-Key": current_app.config["DISCOUESE_API_KEY"],
-    "Api-Username": "system"
 
-}
 
 def get_default_time():
     """获取当前的UTC+8时间"""
@@ -227,9 +222,14 @@ def is_valid_uuid(uuid_string):
 
 def check_username_exists(username):
     data = []
+    headers = {
+    'User-Agent': 'tjb',
+    "Api-Key": current_app.config["DISCOUESE_API_KEY"],
+    "Api-Username": "system"
+    }
     for i in range(5):
         try:
-            req = requests.get("https://forum.tjmtr.world/admin/users/list/active.json")
+            req = requests.get("https://forum.tjmtr.world/admin/users/list/active.json", headers=headers)
             if req.status_code == 200:
                 data = req.json()
                 break
@@ -265,7 +265,6 @@ def auto_review_player_application(application, host, password, port):
     自动审核玩家权限申请
     返回 (是否通过, 备注)
     """
-
     data = application.content
     # 检查必填字段
     required_fields = ['player_name', 'uuid', 'play_time', 'online_duration', "open_question"]
@@ -311,7 +310,6 @@ def auto_review_player_application(application, host, password, port):
 def schedule_auto_review(host, password, port):
     """定时自动审核任务"""
     from extensions import db
-    
     # 获取所有待审核的玩家权限申请
     pending_apps = Application.query.filter_by(
         form_type='player',
