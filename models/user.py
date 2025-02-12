@@ -248,7 +248,7 @@ def ai_review(question, answer):
     api_base = "https://api.zetatechs.com/v1"
     client = OpenAI(api_key=api_key, base_url=api_base)
     completion = client.chat.completions.create(
-    model="gpt-4o-mini",
+    model="deepseek-chat-free",
     stream=False,
     messages=[
         {"role": "system", "content": "我这里是一个游戏服务器，请你扮演一个审核员，我提出了一道开放性试题，请你看看玩家给的回答是否合适，是否有资格加入服务器。是则说通过，否则说不通过。解释简单地解释下不通过的原因就好，10字以内，通过则无需解释。"},
