@@ -746,7 +746,8 @@ def create_activity():
         elif type == 'fixed_red_packet':
             config = {
                 'coins': int(request.form.get('fixed_coins')),
-                'count': int(request.form.get('fixed_count'))
+                'count': int(request.form.get('fixed_count')),
+                'amount': int(request.form.get('fixed_coins')) * int(request.form.get('fixed_count'))
             }
         elif type == 'lottery':
             prizes = json.loads(request.form.get('prizes', '[]'))
@@ -994,7 +995,7 @@ def review_application():
         return jsonify({'error': '该申请已被处理'})
     
     if status == "approved" and remark == "auto" and application.form_type != "player":
-        current_year = str(datetime.datetime.now().year)
+        current_year = str(datetime.now().year)
         apps = Application.query.filter_by(form_type=application.form_type, status="approved").all()
         existing = []
         for i in apps:
@@ -1005,6 +1006,7 @@ def review_application():
             next_num = f"{i:04d}" 
             if next_num not in existing:
                 number = next_num
+                break
         if application.form_type == "city":
             remark = f"批准文号：际城审字[{current_year}]{number}号"
         else:
@@ -1026,7 +1028,7 @@ def review_application():
                 user.role = 'player'
         db.session.commit()
         
-        return jsonify({'message': '审核成功'})
+        return jsonify({'message': f'审核成功，{remark}'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)})
