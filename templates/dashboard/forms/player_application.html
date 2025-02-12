@@ -192,7 +192,7 @@
             </div>
 
             <div id="questionSection">
-                <label class="block text-gray-700 font-medium mb-2" id="questionTitle"></label>
+                <label class="block text-gray-700 font-medium mb-2" id="questionTitle">请先选择要申请的权限</label>
                 <p class="text-sm text-gray-500 mb-2">该题为开放性试题，答案不唯一。</p>
                 <textarea name="open_question" required
                           class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
@@ -299,8 +299,10 @@ document.querySelectorAll('input[name="permission"]').forEach(radio => {
         const permission = this.value;
         if (['仅旁观', '仅生存'].includes(permission)) {
             questionTitle.textContent = '如果在服务器中与他人闹了矛盾，你会如何解决？';
-        } else if (['仅创造', '创造者权限（OP2）'].includes(permission)) {
+        } else if (['仅创造'].includes(permission)) {
             questionTitle.textContent = '加入了服务器，你有怎样的目标或愿景？';
+        } else if (['创造者权限（OP2）'].includes(permission)) {
+            questionTitle.textContent = '对服务器目前的环境有什么看法，有哪些建议？';
         }
     });
 });

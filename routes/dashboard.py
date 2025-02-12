@@ -317,12 +317,15 @@ def submit_application(form_type):
             reason=f'提交{FORM_TYPE_NAMES[form_type]}申请'
         )
         db.session.add(record)
-        
+        remark = None
+        if form_type == "player" and data["permission"] == "创造者权限（OP2）":
+            remark = "请联系管理员手动审核"
         # 创建申请记录
         application = Application(
             user_id=current_user.id,
             form_type=form_type,
-            content=data
+            content=data,
+            remark = remark
         )
         db.session.add(application)
         db.session.commit()
