@@ -80,3 +80,8 @@ class Config:
     STRUCTURE_STORAGE_PATH = os.getenv('STRUCTURE_STORAGE_PATH')  # 结构存储目录
     GAME_ROOT_PATH = os.getenv('GAME_ROOT_PATH')  # 游戏根目录
 
+    # 论坛配置
+    DISCOUESE_API_KEY = os.getenv('DISCOUESE_API_KEY') # API密钥
+
+    # 开放性试题审核配置
+    AI_KEY = os.getenv("AI_KEY") # AI密钥

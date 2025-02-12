@@ -42,6 +42,7 @@ FORM_FIELD_NAMES = {
     'forum_username': '论坛用户名',
     'forum_email': '论坛账号',
     'qq_number': 'QQ号',
+    "open_question": "开放性问题",
     'game_account_type': '游戏账号类型',
     'player_name': '玩家名',
     'uuid': 'UUID',
@@ -989,6 +990,23 @@ def review_application():
     application = Application.query.get_or_404(application_id)
     if application.status != 'pending':
         return jsonify({'error': '该申请已被处理'})
+    
+    if status == "approved" and remark == "auto" and application.form_type != "player":
+        current_year = str(datetime.datetime.now().year)
+        apps = Application.query.filter_by(form_type=application.form_type, status="approved").all()
+        existing = []
+        for i in apps:
+            if i.remark[10:14] == current_year:
+                existing.append(i.remark[15:19])
+        existing = sorted(set(existing))
+        for i in range(1, 10000):  
+            next_num = f"{i:04d}" 
+            if next_num not in existing:
+                number = next_num
+        if application.form_type == "city":
+            remark = f"批准文号：际城审字[{current_year}]{number}号"
+        else:
+            remark = f"批准文号：际交审字[{current_year}]{number}号"
         
     try:
         application.status = status

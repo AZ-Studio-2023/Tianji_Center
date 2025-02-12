@@ -191,6 +191,13 @@
                 </div>
             </div>
 
+            <div id="questionSection">
+                <label class="block text-gray-700 font-medium mb-2" id="questionTitle"></label>
+                <p class="text-sm text-gray-500 mb-2">该题为开放性试题，答案不唯一。</p>
+                <textarea name="open_question" required
+                          class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+
             {% if config.ENABLE_GEETEST %}
             <div id="captcha"></div>
             {% endif %}
@@ -214,6 +221,7 @@ initGeetest4({
     captcha.appendTo("#captcha");
 });
 {% endif %}
+
 function submitApplication(event) {
     event.preventDefault();
     const form = event.target;
@@ -280,6 +288,19 @@ document.querySelectorAll('input[name="game_account_type"]').forEach(radio => {
             getUuidBtn.textContent = '一键获取';
         } else {
             getUuidBtn.textContent = '该类型不可用';
+        }
+    });
+});
+
+// 监听权限选择变化
+document.querySelectorAll('input[name="permission"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const questionTitle = document.getElementById('questionTitle');
+        const permission = this.value;
+        if (['仅旁观', '仅生存'].includes(permission)) {
+            questionTitle.textContent = '如果在服务器中与他人闹了矛盾，你会如何解决？';
+        } else if (['仅创造', '创造者权限（OP2）'].includes(permission)) {
+            questionTitle.textContent = '加入了服务器，你有怎样的目标或愿景？';
         }
     });
 });

@@ -5,9 +5,14 @@ from datetime import datetime
 from flask import current_app
 import pytz, json, requests, uuid, mcrcon
 import hashlib
+import time
+from openai import OpenAI
 
 headers = {
-    'User-Agent': 'tjb'
+    'User-Agent': 'tjb',
+    "Api-Key": current_app.config["DISCOUESE_API_KEY"],
+    "Api-Username": "system"
+
 }
 
 def get_default_time():
@@ -221,16 +226,49 @@ def is_valid_uuid(uuid_string):
     return str(val) == uuid_string
 
 def check_username_exists(username):
-    return True
+    data = []
+    for i in range(5):
+        try:
+            req = requests.get("https://forum.tjmtr.world/admin/users/list/active.json")
+            if req.status_code == 200:
+                data = req.json()
+                break
+            time.sleep(5)
+            continue
+        except:
+            time.sleep(5)
+            continue
+    for i in data:
+        if i["username"] == username:
+            return i["active"]
+    return False
     
+def ai_review(question, answer):
+    api_key = current_app.config['AI_KEY']
+    api_base = "https://api.zetatechs.com/v1"
+    client = OpenAI(api_key=api_key, base_url=api_base)
+    completion = client.chat.completions.create(
+    model="gpt-4o-mini",
+    stream=False,
+    messages=[
+        {"role": "system", "content": "我这里是一个游戏服务器，请你扮演一个审核员，我提出了一道开放性试题，请你看看玩家给的回答是否合适，是否有资格加入服务器。是则说通过，否则说不通过。解释简单地解释下不通过的原因就好，10字以内，通过则无需解释。"},
+        {"role": "user", "content": f"题目：{question}\n回答：{answer}"}
+    ]
+    )
+    text = completion.choices[0].message.content
+    if "拒绝" in text or "不通过" in text:
+        return False, text
+    else:
+        return True, text
 def auto_review_player_application(application, host, password, port):
     """
     自动审核玩家权限申请
     返回 (是否通过, 备注)
     """
+
     data = application.content
     # 检查必填字段
-    required_fields = ['player_name', 'uuid', 'play_time', 'online_duration']
+    required_fields = ['player_name', 'uuid', 'play_time', 'online_duration', "open_question"]
     if not all(field in data for field in required_fields):
         return False, "申请表信息不完整"
     
@@ -240,11 +278,23 @@ def auto_review_player_application(application, host, password, port):
                 if data["permission"] != "仅旁观" or data["permission"] != "仅生存":
                     return False, "游玩MTR模组时间过短，申请权限过高"
                 else: 
+                    s, r = ai_review("如果在服务器中与他人闹了矛盾，你会如何解决？", data["open_question"])
+                    if s:
+                        add_whiteList(data["player_name"], data["uuid"], host, password, port)
+                        return True, "请查看群公告有关模式修改的说明"
+                    else:
+                        return False, f"开放性试题：{r}"
+            if data["permission"] != "创造者权限（OP2)":
+                if data["permission"] == "仅生存" or data["permission"] == "仅旁观":
+                    question = "如果在服务器中与他人闹了矛盾，你会如何解决？"
+                else:
+                    question = "加入了服务器，你有怎样的目标或愿景？"
+                s, r = ai_review(question, data["open_question"])
+                if s:
                     add_whiteList(data["player_name"], data["uuid"], host, password, port)
                     return True, "请查看群公告有关模式修改的说明"
-            if data["permission"] != "创造者权限（OP2)":
-                add_whiteList(data["player_name"], data["uuid"], host, password, port)
-                return True, "请查看群公告有关模式修改的说明"
+                else:
+                    return False, f"开放性试题：{r}"
         else:
             return False, "UUID格式不正确"
     elif data["permission"] == "创造者权限（OP2）":
