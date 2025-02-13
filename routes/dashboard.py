@@ -1020,11 +1020,16 @@ def review_application():
         application.remark = remark
         application.reviewed_at = get_current_time()
         application.reviewer_id = current_user.id
-
         if status == "approved" and application.form_type == "player":
             user = User.query.filter_by(id=application.user_id).first()
             if application.content['permission'] == '创造者权限（OP2）' and user.role != 'admin':
                 user.role = 'creator'
+                headers = {
+                'User-Agent': 'tjb',
+                "Api-Key": current_app.config["DISCOUESE_API_KEY"],
+                "Api-Username": "system"
+                }
+                requests.put("https://forum.tjmtr.world/groups/41/members.json", headers=headers, json={"usernames": application.content["forum_email"]})
             elif application.content['permission'] == '仅旁观' and user.role != 'admin' and user.role != 'creator' and user.role != 'player':
                 user.role = 'visitor'
             elif application.content['permission'] == '仅生存' or application.content['permission'] == '仅创造' and user.role != 'admin' and user.role != 'creator':
