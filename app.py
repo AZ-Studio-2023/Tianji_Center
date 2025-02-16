@@ -71,19 +71,19 @@ def create_app():
     # 创建定时任务调度器
     scheduler = BackgroundScheduler()
     
-    # 添加自动审核任务（每周六中午12点）
-    scheduler.add_job(
-        lambda: schedule_auto_review(app.config['MCRCON_HOST'], app.config['MCRCON_PASSWORD'], app.config['MCRCON_PORT']),
-        trigger=CronTrigger(
-            day_of_week='sat',
-            hour=12,
-            minute=0,
-            timezone='Asia/Shanghai'
-        ),
-        id='auto_review',
-        replace_existing=True
-    )
-    
+    with app.app_context():
+        # 添加自动审核任务（每周六中午12点）
+        scheduler.add_job(
+            lambda: schedule_auto_review(app.config['MCRCON_HOST'], app.config['MCRCON_PASSWORD'], app.config['MCRCON_PORT']),
+            trigger=CronTrigger(
+                day_of_week='sat',
+                hour=12,
+                minute=0,
+                timezone='Asia/Shanghai'
+            ),
+            id='auto_review',
+            replace_existing=True
+        )
     # 启动调度器
     scheduler.start()
 
