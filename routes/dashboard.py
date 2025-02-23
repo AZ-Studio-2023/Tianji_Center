@@ -21,6 +21,7 @@ import uuid
 import requests, mcrcon
 from utils.geetest import verify_geetest
 from sqlalchemy.orm import scoped_session, sessionmaker
+from models.user import schedule_auto_review
 
 
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -904,6 +905,13 @@ def verify_qq():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)})
+
+@dashboard_bp.route('/auto')
+def auto_review():
+    KEY = request.json.get('key')
+    if KEY != current_app.config['KEY']:
+        return jsonify({'error': '密钥错误'})
+    schedule_auto_review(current_app.config['MCRCON_HOST'], current_app.config['MCRCON_PASSWORD'], current_app.config['MCRCON_PORT']),
 
 @dashboard_bp.route('/activity-participants/<int:activity_id>')
 @login_required
