@@ -115,6 +115,11 @@
                     <!-- 申请提交 -->
                     <div class="nav-section">
                         <div class="nav-title">申请提交</div>
+                        <a href="{{ url_for('dashboard.railway_section') }}"
+                           class="nav-link {% if request.endpoint == 'dashboard.railway_section' %}active{% endif %}">
+                            <i class="fas fa-train w-5 mr-3"></i>
+                            国铁专区
+                        </a>
                         {% if not current_user.verified_qq %}
                         <a href="{{ url_for('dashboard.submit_player_application') }}" 
                            class="nav-link flex items-center text-gray-400">

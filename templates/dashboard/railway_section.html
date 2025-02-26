@@ -1,0 +1,607 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}国铁专区{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow p-6">
+    <div class="mb-6">
+        <ul class="flex border-b">
+            <li class="mr-1">
+                <a href="#" class="tab-link active px-4 py-2 rounded-t border-l border-t border-r" data-tab="application">
+                    国铁号段申请
+                </a>
+            </li>
+            <li class="mr-1">
+                <a href="#" class="tab-link px-4 py-2 rounded-t border-l border-t border-r" data-tab="query">
+                    国铁车次查询
+                </a>
+            </li>
+            <li class="mr-1">
+                <a href="#" class="tab-link px-4 py-2 rounded-t border-l border-t border-r" data-tab="my-numbers">
+                    我的申请记录
+                </a>
+            </li>
+            {% if current_user.is_admin %}
+            <li class="mr-1">
+                <a href="#" class="tab-link px-4 py-2 rounded-t border-l border-t border-r" data-tab="reports">
+                    举报审核
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+
+    <!-- 申请表单 -->
+    <div id="application" class="tab-content active">
+        <div class="mb-4 flex justify-between items-center">
+            <button id="addApplication" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                添加新申请
+            </button>
+            <div class="text-sm text-gray-500">
+                每条申请需要2天际币
+            </div>
+        </div>
+        <div id="applicationList" class="space-y-4"></div>
+        <div class="mt-4">
+            <button id="submitApplications" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                提交申请
+            </button>
+        </div>
+    </div>
+
+    <!-- 查询界面 -->
+    <div id="query" class="tab-content hidden">
+        <div class="mb-4">
+            <div class="flex space-x-2">
+                <input type="text" id="queryTrainNumber" 
+                       class="flex-1 border rounded px-3 py-2" 
+                       placeholder="请输入完整车次号(如: G1)">
+                <button id="queryButton" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    查询
+                </button>
+            </div>
+        </div>
+        <div id="queryResult" class="hidden border rounded p-4">
+            <!-- 查询结果将在这里显示 -->
+        </div>
+    </div>
+
+    <!-- 我的申请记录 -->
+    <div id="my-numbers" class="tab-content hidden">
+        <div id="myNumbersList" class="space-y-4">
+            <!-- 申请记录将在这里显示 -->
+        </div>
+    </div>
+
+    <!-- 举报审核 -->
+    {% if current_user.is_admin %}
+    <div id="reports" class="tab-content hidden">
+        <div id="reportsList" class="space-y-4">
+            <!-- 举报列表将在这里显示 -->
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 申请表单模板 -->
+<template id="applicationTemplate">
+    <div class="application-card border rounded p-4">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center space-x-2">
+                <select class="prefix-select border rounded px-2 py-1">
+                    <option value="G">G</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                    <option value="T">T</option>
+                    <option value="K">K</option>
+                    <option value="Z">Z</option>
+                </select>
+                <input type="number" class="number-input border rounded px-2 py-1 w-24" 
+                       min="1" max="9999" placeholder="车次号">
+                <div class="number-status ml-2"></div>
+            </div>
+            <button class="delete-application text-red-500 hover:text-red-700">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+        
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">铁路局</label>
+            <select class="bureau-select w-full border rounded px-3 py-2">
+                {% for bureau in bureaus %}
+                <option value="{{ bureau }}">{{ bureau }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">始发站</label>
+                <input type="text" class="start-station w-full border rounded px-3 py-2" 
+                       placeholder="输入站点名称">
+                <div class="station-info mt-2 text-sm"></div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">终点站</label>
+                <input type="text" class="end-station w-full border rounded px-3 py-2" 
+                       placeholder="输入站点名称">
+                <div class="station-info mt-2 text-sm"></div>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <button class="add-return bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                添加折返线路
+            </button>
+        </div>
+    </div>
+</template>
+
+<!-- 举报对话框模板 -->
+<template id="reportDialogTemplate">
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
+            <h3 class="text-lg font-medium mb-4">举报车次滥用</h3>
+            <textarea class="w-full border rounded p-2 mb-4" rows="4" 
+                      placeholder="请输入举报原因"></textarea>
+            <div class="flex justify-end space-x-2">
+                <button class="cancel-report px-4 py-2 border rounded">取消</button>
+                <button class="confirm-report bg-red-500 text-white px-4 py-2 rounded">
+                    确认举报
+                </button>
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let stations = {};
+let checkingNumbers = new Set();
+
+// 获取站点数据
+async function fetchStations() {
+    try {
+        const response = await fetch('https://railway.tjmtr.world/data');
+        const data = await response.json();
+        stations = data[0].stations;
+        setupStationAutocomplete();
+    } catch (error) {
+        console.error('获取站点数据失败:', error);
+    }
+}
+
+// 设置站点自动完成
+function setupStationAutocomplete() {
+    const stationNames = Object.keys(stations);
+    const datalist = document.createElement('datalist');
+    datalist.id = 'stationList';
+    
+    stationNames.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        datalist.appendChild(option);
+    });
+    
+    document.body.appendChild(datalist);
+    
+    document.querySelectorAll('.start-station, .end-station').forEach(input => {
+        input.setAttribute('list', 'stationList');
+    });
+}
+
+// 检查车次是否可用
+async function checkTrainNumber(prefix, number) {
+    const trainNumber = `${prefix}${number}`;
+    if (checkingNumbers.has(trainNumber)) return;
+    
+    checkingNumbers.add(trainNumber);
+    const statusDiv = document.querySelector(`[data-train-number="${trainNumber}"] .number-status`);
+    if (statusDiv) {
+        statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
+    
+    try {
+        const response = await fetch(`/api/check-train-number/${trainNumber}`);
+        const data = await response.json();
+        
+        if (statusDiv) {
+            if (data.available) {
+                statusDiv.innerHTML = '<i class="fas fa-check text-green-500"></i>';
+            } else {
+                statusDiv.innerHTML = '<i class="fas fa-exclamation-triangle text-red-500"></i>';
+            }
+        }
+    } catch (error) {
+        console.error('检查车次失败:', error);
+        if (statusDiv) {
+            statusDiv.innerHTML = '<i class="fas fa-times text-red-500"></i>';
+        }
+    } finally {
+        checkingNumbers.delete(trainNumber);
+    }
+}
+
+// 更新站点信息显示
+function updateStationInfo(input, data) {
+    const infoDiv = input.parentElement.querySelector('.station-info');
+    if (!data) {
+        infoDiv.innerHTML = '';
+        return;
+    }
+    
+    const colorHex = '#' + data.color.toString(16).padStart(6, '0');
+    infoDiv.innerHTML = `
+        <div class="flex items-center space-x-2">
+            <div class="w-4 h-4 rounded" style="background-color: ${colorHex}"></div>
+            <span>收费区: ${data.zone}</span>
+            <span>坐标: (${data.x}, ${data.z})</span>
+        </div>
+    `;
+}
+
+// 添加新申请卡片
+function addApplicationCard() {
+    const template = document.getElementById('applicationTemplate');
+    const card = template.content.cloneNode(true);
+    const container = document.getElementById('applicationList');
+    
+    // 设置事件监听器
+    const card_element = card.querySelector('.application-card');
+    
+    // 车次号检查
+    const prefix_select = card.querySelector('.prefix-select');
+    const number_input = card.querySelector('.number-input');
+    
+    function updateTrainNumber() {
+        const prefix = prefix_select.value;
+        const number = number_input.value;
+        if (prefix && number) {
+            card_element.dataset.trainNumber = prefix + number;
+            checkTrainNumber(prefix, number);
+        }
+    }
+    
+    prefix_select.addEventListener('change', updateTrainNumber);
+    number_input.addEventListener('input', updateTrainNumber);
+    
+    // 站点选择
+    const station_inputs = card.querySelectorAll('.start-station, .end-station');
+    station_inputs.forEach(input => {
+        input.addEventListener('input', () => {
+            const station_data = stations[input.value];
+            updateStationInfo(input, station_data);
+        });
+    });
+    
+    // 删除按钮
+    card.querySelector('.delete-application').addEventListener('click', () => {
+        card_element.remove();
+    });
+    
+    // 添加折返线路按钮
+    card.querySelector('.add-return').addEventListener('click', () => {
+        const prefix = prefix_select.value;
+        const number = parseInt(number_input.value);
+        if (!prefix || !number) {
+            showToast('请先填写完整的车次信息', 'error');
+            return;
+        }
+        
+        addReturnRoute(prefix, number, card_element);
+    });
+    
+    container.appendChild(card);
+}
+
+// 添加折返线路
+function addReturnRoute(prefix, number, originalCard) {
+    const template = document.getElementById('applicationTemplate');
+    const card = template.content.cloneNode(true);
+    const card_element = card.querySelector('.application-card');
+    
+    // 设置折返车次信息
+    const prefix_select = card.querySelector('.prefix-select');
+    const number_input = card.querySelector('.number-input');
+    prefix_select.value = prefix;
+    number_input.value = number + 1;
+    
+    // 交换始发和终点站
+    const original_start = originalCard.querySelector('.start-station').value;
+    const original_end = originalCard.querySelector('.end-station').value;
+    const start_input = card.querySelector('.start-station');
+    const end_input = card.querySelector('.end-station');
+    start_input.value = original_end;
+    end_input.value = original_start;
+    
+    // 更新站点信息
+    updateStationInfo(start_input, stations[original_end]);
+    updateStationInfo(end_input, stations[original_start]);
+    
+    // 标记为折返线路
+    card_element.dataset.returnTo = `${prefix}${number}`;
+    card_element.querySelector('.add-return').remove();
+    
+    // 添加到容器
+    document.getElementById('applicationList').appendChild(card);
+    
+    // 检查新车次号
+    checkTrainNumber(prefix, number + 1);
+}
+
+// 提交申请
+async function submitApplications() {
+    const cards = document.querySelectorAll('.application-card');
+    const applications = [];
+    
+    for (const card of cards) {
+        const prefix = card.querySelector('.prefix-select').value;
+        const number = card.querySelector('.number-input').value;
+        const bureau = card.querySelector('.bureau-select').value;
+        const start_station = card.querySelector('.start-station').value;
+        const end_station = card.querySelector('.end-station').value;
+        
+        if (!prefix || !number || !bureau || !start_station || !end_station) {
+            showToast('请填写完整的申请信息', 'error');
+            return;
+        }
+        
+        applications.push({
+            prefix,
+            number,
+            bureau,
+            startStation: start_station,
+            startStationData: stations[start_station],
+            endStation: end_station,
+            endStationData: stations[end_station],
+            isReturn: !!card.dataset.returnTo,
+            linkedTo: card.dataset.returnTo
+        });
+    }
+    
+    if (applications.length === 0) {
+        showToast('请至少添加一条申请', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/train-numbers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ applications })
+        });
+        
+        const data = await response.json();
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('申请成功', 'success');
+            document.getElementById('applicationList').innerHTML = '';
+            loadMyNumbers();
+        }
+    } catch (error) {
+        console.error('提交申请失败:', error);
+        showToast('提交失败，请重试', 'error');
+    }
+}
+
+// 加载我的申请记录
+async function loadMyNumbers() {
+    try {
+        const response = await fetch('/api/my-train-numbers');
+        const data = await response.json();
+        
+        const container = document.getElementById('myNumbersList');
+        container.innerHTML = '';
+        
+        data.forEach(train => {
+            const card = document.createElement('div');
+            card.className = 'border rounded p-4';
+            card.innerHTML = `
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-lg font-medium">${train.train_number}</h3>
+                    <button class="text-red-500 hover:text-red-700" onclick="deleteTrainNumber('${train.train_number}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-gray-600">铁路局: ${train.bureau}</p>
+                        <p class="text-gray-600">始发站: ${train.start_station}</p>
+                        <p class="text-gray-600">终点站: ${train.end_station}</p>
+                    </div>
+                    <div class="text-right">
+                        <button class="text-blue-500 hover:text-blue-700" 
+                                onclick="editTrainNumber('${train.train_number}')">
+                            <i class="fas fa-edit"></i> 修改
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    } catch (error) {
+        console.error('加载申请记录失败:', error);
+        showToast('加载失败，请重试', 'error');
+    }
+}
+
+// 查询车次
+async function queryTrainNumber() {
+    const input = document.getElementById('queryTrainNumber');
+    const train_number = input.value.trim();
+    
+    if (!train_number) {
+        showToast('请输入车次号', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/train-number/${train_number}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            showToast(data.error, 'error');
+            return;
+        }
+        
+        const result_div = document.getElementById('queryResult');
+        result_div.classList.remove('hidden');
+        
+        // 分离中英文站名
+        const [start_cn, start_en] = data.start_station.split(' | ');
+        const [end_cn, end_en] = data.end_station.split(' | ');
+        
+        result_div.innerHTML = `
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-medium">${data.train_number}</h3>
+                    <button onclick="showReportDialog('${data.train_number}')"
+                            class="text-red-500 hover:text-red-700">
+                        <i class="fas fa-flag"></i> 举报滥用
+                    </button>
+                </div>
+                <p>归属: ${data.bureau}</p>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="font-medium">始发站</p>
+                        <p>${start_cn}</p>
+                        ${start_en ? `<p class="text-gray-500">${start_en}</p>` : ''}
+                        ${data.start_station_data ? `
+                            <div class="mt-2">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-4 h-4 rounded" 
+                                         style="background-color: #${data.start_station_data.color.toString(16).padStart(6, '0')}">
+                                    </div>
+                                    <span>收费区: ${data.start_station_data.zone}</span>
+                                </div>
+                                <p>坐标: (${data.start_station_data.x}, ${data.start_station_data.z})</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div>
+                        <p class="font-medium">终点站</p>
+                        <p>${end_cn}</p>
+                        ${end_en ? `<p class="text-gray-500">${end_en}</p>` : ''}
+                        ${data.end_station_data ? `
+                            <div class="mt-2">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-4 h-4 rounded" 
+                                         style="background-color: #${data.end_station_data.color.toString(16).padStart(6, '0')}">
+                                    </div>
+                                    <span>收费区: ${data.end_station_data.zone}</span>
+                                </div>
+                                <p>坐标: (${data.end_station_data.x}, ${data.end_station_data.z})</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                ${data.related_train ? `
+                    <p class="mt-4">
+                        ${data.is_return ? '去程' : '折返'}车次: 
+                        <a href="#" onclick="queryTrainNumber('${data.related_train}')" 
+                           class="text-blue-500 hover:text-blue-700">
+                            ${data.related_train}
+                        </a>
+                    </p>
+                ` : ''}
+            </div>
+        `;
+    } catch (error) {
+        console.error('查询失败:', error);
+        showToast('查询失败，请重试', 'error');
+    }
+}
+
+// 显示举报对话框
+function showReportDialog(train_number) {
+    const template = document.getElementById('reportDialogTemplate');
+    const dialog = template.content.cloneNode(true);
+    const dialog_element = dialog.querySelector('div');
+    
+    dialog_element.querySelector('.cancel-report').addEventListener('click', () => {
+        dialog_element.remove();
+    });
+    
+    dialog_element.querySelector('.confirm-report').addEventListener('click', async () => {
+        const message = dialog_element.querySelector('textarea').value.trim();
+        if (!message) {
+            showToast('请输入举报原因', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/report-train', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    train_number,
+                    message
+                })
+            });
+            
+            const data = await response.json();
+            if (data.error) {
+                showToast(data.error, 'error');
+            } else {
+                showToast('举报成功', 'success');
+                dialog_element.remove();
+            }
+        } catch (error) {
+            console.error('举报失败:', error);
+            showToast('举报失败，请重试', 'error');
+        }
+    });
+    
+    document.body.appendChild(dialog_element);
+}
+
+// 初始化
+document.addEventListener('DOMContentLoaded', () => {
+    fetchStations();
+    
+    // 标签切换
+    document.querySelectorAll('.tab-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tab = link.dataset.tab;
+            
+            document.querySelectorAll('.tab-link').forEach(l => {
+                l.classList.remove('active', 'bg-white', 'border-b-white');
+            });
+            document.querySelectorAll('.tab-content').forEach(c => {
+                c.classList.add('hidden');
+            });
+            
+            link.classList.add('active', 'bg-white', 'border-b-white');
+            document.getElementById(tab).classList.remove('hidden');
+            
+            if (tab === 'my-numbers') {
+                loadMyNumbers();
+            }
+        });
+    });
+    
+    // 添加申请按钮
+    document.getElementById('addApplication').addEventListener('click', addApplicationCard);
+    
+    // 提交申请按钮
+    document.getElementById('submitApplications').addEventListener('click', submitApplications);
+    
+    // 查询按钮
+    document.getElementById('queryButton').addEventListener('click', queryTrainNumber);
+    
+    // 回车查询
+    document.getElementById('queryTrainNumber').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            queryTrainNumber();
+        }
+    });
+});
+</script>
+{% endblock %} 

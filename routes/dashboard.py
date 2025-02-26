@@ -22,6 +22,7 @@ import requests, mcrcon
 from utils.geetest import verify_geetest
 from sqlalchemy.orm import scoped_session, sessionmaker
 from models.user import schedule_auto_review
+from models.railway import TrainNumber, TrainReport  # 稍后创建这些模型
 
 
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -1515,3 +1516,290 @@ def activity_answers(activity_id):
 @dashboard_bp.context_processor
 def utility_processor():
     return dict(get_current_time=get_current_time)
+
+@dashboard_bp.route('/railway-section')
+@login_required
+def railway_section():
+    # 从申请提交中获取已通过的城市申请
+    approved_cities = Application.query.filter_by(
+        form_type='city',
+        status='approved'
+    ).all()
+    
+    # 构建铁路局列表
+    bureaus = ['天际铁路局']  # 确保天际铁路局始终在最上方
+    for app in approved_cities:
+        bureau = f"{app.content.get('city_name_cn')}铁路局"
+        if bureau not in bureaus:
+            bureaus.append(bureau)
+    
+    # 添加特殊铁路局
+    special_bureaus = ['枫丹铁路局', '牧野铁路局']
+    for bureau in special_bureaus:
+        if bureau not in bureaus:
+            bureaus.append(bureau)
+    
+    return render_template('dashboard/railway_section.html', bureaus=bureaus)
+
+@dashboard_bp.route('/api/train-numbers', methods=['POST'])
+@login_required
+def submit_train_numbers():
+    data = request.json
+    applications = data.get('applications', [])
+    
+    # 计算总费用
+    total_cost = len(applications) * 2
+    
+    # 检查天际币是否足够
+    if current_user.coins < total_cost:
+        return jsonify({'error': f'天际币不足，需要{total_cost}天际币'})
+        
+    try:
+        for app in applications:
+            train_number = TrainNumber(
+                user_id=current_user.id,
+                prefix=app['prefix'],
+                number=app['number'],
+                bureau=app['bureau'],
+                start_station=app['startStation'],
+                start_station_data=app.get('startStationData'),
+                end_station=app['endStation'],
+                end_station_data=app.get('endStationData'),
+                is_return=app.get('isReturn', False),
+                return_to=app.get('linkedTo')
+            )
+            db.session.add(train_number)
+            
+        # 扣除天际币
+        current_user.coins -= total_cost
+        
+        # 添加天际币记录
+        record = CoinRecord(
+            user_id=current_user.id,
+            amount=-total_cost,
+            reason='申请国铁号段'
+        )
+        db.session.add(record)
+        
+        db.session.commit()
+        return jsonify({'message': '申请成功'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)})
+
+@dashboard_bp.route('/api/check-train-number/<train_number>')
+@login_required
+def check_train_number(train_number):
+    """检查车次是否已被占用"""
+    existing = TrainNumber.query.filter_by(
+        prefix=train_number[0],
+        number=train_number[1:]
+    ).first()
+    return jsonify({'available': not bool(existing)})
+
+@dashboard_bp.route('/api/train-number/<train_number>')
+@login_required
+def get_train_number(train_number):
+    """查询车次信息"""
+    train = TrainNumber.query.filter_by(
+        prefix=train_number[0],
+        number=train_number[1:]
+    ).first()
+    
+    if not train:
+        return jsonify({'error': '未找到该车次'})
+    
+    # 获取关联的折返/去程车次
+    related_train = None
+    if train.is_return:
+        related_train = TrainNumber.query.filter_by(
+            prefix=train.return_to[0],
+            number=train.return_to[1:]
+        ).first()
+    else:
+        related_train = TrainNumber.query.filter_by(
+            return_to=train.train_number
+        ).first()
+    
+    return jsonify({
+        'train_number': train.train_number,
+        'bureau': train.bureau,
+        'start_station': train.start_station,
+        'start_station_data': train.start_station_data,
+        'end_station': train.end_station,
+        'end_station_data': train.end_station_data,
+        'is_return': train.is_return,
+        'related_train': related_train.train_number if related_train else None
+    })
+
+@dashboard_bp.route('/api/report-train', methods=['POST'])
+@login_required
+def report_train():
+    """举报车次滥用"""
+    data = request.json
+    train_number = data.get('train_number')
+    message = data.get('message')
+    
+    if not train_number or not message:
+        return jsonify({'error': '参数不完整'})
+        
+    try:
+        report = TrainReport(
+            train_number=train_number,
+            reporter_id=current_user.id,
+            message=message
+        )
+        db.session.add(report)
+        db.session.commit()
+        
+        return jsonify({'message': '举报成功'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)})
+
+@dashboard_bp.route('/api/my-train-numbers')
+@login_required
+def get_my_train_numbers():
+    """获取用户的车次申请记录"""
+    trains = TrainNumber.query.filter_by(user_id=current_user.id).all()
+    return jsonify([{
+        'train_number': train.train_number,
+        'bureau': train.bureau,
+        'start_station': train.start_station,
+        'end_station': train.end_station,
+        'is_return': train.is_return,
+        'return_to': train.return_to
+    } for train in trains])
+
+@dashboard_bp.route('/api/train-number/<train_number>', methods=['DELETE'])
+@login_required
+def delete_train_number(train_number):
+    """删除车次申请"""
+    train = TrainNumber.query.filter_by(
+        prefix=train_number[0],
+        number=train_number[1:],
+        user_id=current_user.id
+    ).first()
+    
+    if not train:
+        return jsonify({'error': '未找到该车次或无权限删除'})
+    
+    try:
+        # 如果是去程车次，同时删除折返车次
+        if not train.is_return:
+            return_train = TrainNumber.query.filter_by(
+                return_to=train_number
+            ).first()
+            if return_train:
+                db.session.delete(return_train)
+        
+        db.session.delete(train)
+        db.session.commit()
+        return jsonify({'message': '删除成功'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)})
+
+@dashboard_bp.route('/api/train-number/<train_number>', methods=['PUT'])
+@login_required
+def update_train_number(train_number):
+    """修改车次信息"""
+    data = request.json
+    train = TrainNumber.query.filter_by(
+        prefix=train_number[0],
+        number=train_number[1:],
+        user_id=current_user.id
+    ).first()
+    
+    if not train:
+        return jsonify({'error': '未找到该车次或无权限修改'})
+        
+    try:
+        train.bureau = data.get('bureau', train.bureau)
+        train.start_station = data.get('startStation', train.start_station)
+        train.start_station_data = data.get('startStationData', train.start_station_data)
+        train.end_station = data.get('endStation', train.end_station)
+        train.end_station_data = data.get('endStationData', train.end_station_data)
+        
+        # 如果有关联的折返车次，同步更新
+        if not train.is_return:
+            return_train = TrainNumber.query.filter_by(
+                return_to=train_number
+            ).first()
+            if return_train:
+                return_train.bureau = train.bureau
+                return_train.start_station = train.end_station
+                return_train.start_station_data = train.end_station_data
+                return_train.end_station = train.start_station
+                return_train.end_station_data = train.start_station_data
+        
+        db.session.commit()
+        return jsonify({'message': '修改成功'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)})
+
+@dashboard_bp.route('/api/reports')
+@login_required
+def get_reports():
+    """获取举报列表"""
+    if not current_user.is_admin:
+        return jsonify({'error': '无权限'}), 403
+        
+    reports = TrainReport.query.filter_by(status='pending').all()
+    return jsonify([{
+        'id': report.id,
+        'train_number': report.train_number,
+        'reporter': User.query.get(report.reporter_id).username,
+        'message': report.message,
+        'created_at': report.created_at.strftime('%Y-%m-%d %H:%M:%S')
+    } for report in reports])
+
+@dashboard_bp.route('/api/report/<int:report_id>', methods=['POST'])
+@login_required
+def process_report(report_id):
+    """处理举报"""
+    if not current_user.is_admin:
+        return jsonify({'error': '无权限'}), 403
+        
+    data = request.json
+    action = data.get('action')  # 'approve' or 'reject'
+    
+    report = TrainReport.query.get_or_404(report_id)
+    if report.status != 'pending':
+        return jsonify({'error': '该举报已被处理'})
+        
+    try:
+        if action == 'approve':
+            # 删除被举报的车次及其关联车次
+            train = TrainNumber.query.filter_by(
+                prefix=report.train_number[0],
+                number=report.train_number[1:]
+            ).first()
+            
+            if train:
+                if not train.is_return:
+                    return_train = TrainNumber.query.filter_by(
+                        return_to=report.train_number
+                    ).first()
+                    if return_train:
+                        db.session.delete(return_train)
+                else:
+                    original_train = TrainNumber.query.filter_by(
+                        prefix=train.return_to[0],
+                        number=train.return_to[1:]
+                    ).first()
+                    if original_train:
+                        db.session.delete(original_train)
+                        
+                db.session.delete(train)
+        
+        report.status = 'approved' if action == 'approve' else 'rejected'
+        report.processed_at = datetime.now(pytz.timezone('Asia/Shanghai'))
+        report.processor_id = current_user.id
+        
+        db.session.commit()
+        return jsonify({'message': '处理成功'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)})
