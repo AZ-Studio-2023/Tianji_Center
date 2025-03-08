@@ -1541,12 +1541,6 @@ def railway_section():
         if bureau not in bureaus:
             bureaus.append(bureau)
 
-    # 添加特殊铁路局
-    special_bureaus = ['枫丹铁路局', '牧野铁路局']
-    for bureau in special_bureaus:
-        if bureau not in bureaus:
-            bureaus.append(bureau)
-
     return render_template('dashboard/railway_section.html', bureaus=bureaus)
 
 @dashboard_bp.route('/api/train-numbers', methods=['POST'])
