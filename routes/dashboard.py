@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, jsonify, request, current_app, flash, url_for, redirect
 from flask_login import login_required, current_user
 from models.user import (
-    User, Application, CoinRecord, CheckIn, 
+    User, Application, CoinRecord, CheckIn,
     Activity, ActivityParticipant, Vote, VoteRecord
 )
 from utils.oauth import qq_oauth, wechat_oauth, github_oauth, microsoft_oauth
@@ -93,7 +93,7 @@ def check_creative_permission():
         user_id=current_user.id,
         status='approved'
     ).all()
-    
+
     for app in approved_applications:
         if app.content.get('permission') in ['仅创造', '创造者权限（OP2）']:
             return True
@@ -108,14 +108,14 @@ def index():
         'approved': Application.query.filter_by(user_id=current_user.id, status='approved').count(),
         'rejected': Application.query.filter_by(user_id=current_user.id, status='rejected').count()
     }
-    
+
     # 检查今日是否已签到
     today = datetime.utcnow().date()
     today_checkin = CheckIn.query.filter(
         CheckIn.user_id == current_user.id,
         db.func.date(CheckIn.created_at) == today
     ).first()
-    
+
     # 获取当前有效的投票
     now = get_current_time()
     current_votes = Vote.query.filter(
@@ -134,7 +134,7 @@ def index():
             )
         )
     ).order_by(Vote.start_time).all()
-    
+
     # 检查用户是否已对每个投票进行投票
     for vote in current_votes:
         vote.has_voted = VoteRecord.query.filter_by(
@@ -146,7 +146,7 @@ def index():
         # 为模板中的显示转换时区
         vote.start_time = localize_time(vote.start_time)
         vote.end_time = localize_time(vote.end_time)
-    
+
     return render_template('dashboard/index.html',
         stats=stats,
         today_checkin=today_checkin,
@@ -165,15 +165,15 @@ def checkin():
         db.func.date(CheckIn.created_at) == today
     ).first():
         return jsonify({'error': '今日已签到'})
-    
+
     # 随机获得8-15天际币
     coins = random.randint(8, 15)
-    
+
     try:
         # 创建签到记录
         checkin = CheckIn(user_id=current_user.id, coins=coins)
         db.session.add(checkin)
-        
+
         # 添加天际币记录
         record = CoinRecord(
             user_id=current_user.id,
@@ -181,12 +181,12 @@ def checkin():
             reason='每日签到'
         )
         db.session.add(record)
-        
+
         # 更新用户天际币
         current_user.coins += coins
-        
+
         db.session.commit()
-        
+
         flash(f'签到成功，获得{coins}天际币', 'success')
         return jsonify({
             'message': '签到成功',
@@ -201,18 +201,18 @@ def checkin():
 def vote():
     vote_id = request.json.get('vote_id')
     agree = request.json.get('agree')
-    
+
     vote = Vote.query.get_or_404(vote_id)
-    
+
     # 检查投票是否在有效期内
     now = get_current_time()  # 使用 UTC+8 时间
     if now < localize_time(vote.start_time) or now > localize_time(vote.end_time):
         return jsonify({'error': '投票已结束或未开始'})
-    
+
     # 检查是否已投票
     if VoteRecord.query.filter_by(vote_id=vote_id, user_id=current_user.id).first():
         return jsonify({'error': '已参与投票'})
-    
+
     try:
         # 记录投票
         record = VoteRecord(
@@ -222,7 +222,7 @@ def vote():
         )
         db.session.add(record)
         db.session.commit()
-        
+
         return jsonify({'message': '投票成功'})
     except Exception as e:
         db.session.rollback()
@@ -242,7 +242,7 @@ def applications():
 @login_required
 def submit_player_application():
     if not current_user.verified_qq:
-        return render_template('dashboard/error.html', 
+        return render_template('dashboard/error.html',
             message='请先在个人资料中完成QQ验证',
             redirect_url=url_for('dashboard.profile'))
     if current_user.coins < APPLICATION_FEES['player']:
@@ -255,11 +255,11 @@ def submit_player_application():
 @login_required
 def submit_line_application():
     if not current_user.verified_qq:
-        return render_template('dashboard/error.html', 
+        return render_template('dashboard/error.html',
             message='请先在个人资料中完成QQ验证',
             redirect_url=url_for('dashboard.profile'))
     if not check_creative_permission():
-        return render_template('dashboard/error.html', 
+        return render_template('dashboard/error.html',
             message='需要通过创造或创造者权限申请',
             redirect_url=url_for('dashboard.applications'))
     if current_user.coins < APPLICATION_FEES['line']:
@@ -272,11 +272,11 @@ def submit_line_application():
 @login_required
 def submit_city_application():
     if not current_user.verified_qq:
-        return render_template('dashboard/error.html', 
+        return render_template('dashboard/error.html',
             message='请先在个人资料中完成QQ验证',
             redirect_url=url_for('dashboard.profile'))
     if not check_creative_permission():
-        return render_template('dashboard/error.html', 
+        return render_template('dashboard/error.html',
             message='需要通过创造或创造者权限申请',
             redirect_url=url_for('dashboard.applications'))
     if current_user.coins < APPLICATION_FEES['city']:
@@ -294,24 +294,32 @@ def submit_application(form_type):
         return jsonify({'error': '人机验证失败'})
     if not current_user.verified_qq:
         return jsonify({'error': '请先完成QQ验证'})
-        
+
     if form_type not in APPLICATION_FEES:
         return jsonify({'error': '无效的申请类型'})
-        
+
     if current_user.coins < APPLICATION_FEES[form_type]:
         return jsonify({'error': f'天际币不足，需要{APPLICATION_FEES[form_type]}天际币'})
-            
+
     # 验证提交的QQ号是否与验证的QQ号一致
     if data.get('qq_number') != current_user.verified_qq:
         return jsonify({'error': 'QQ号与验证的QQ号不一致'})
-        
+
     if form_type in ['line', 'city'] and not check_creative_permission():
         return jsonify({'error': '需要通过创造或创造者权限申请'})
-    
+
+    # 删除captcha数据
+    if current_app.config['ENABLE_GEETEST']:
+        data.pop("captcha_id")
+        data.pop("captcha_output")
+        data.pop("lot_number")
+        data.pop("pass_token")
+        data.pop("gen_time")
+
     try:
         # 扣除天际币
         current_user.coins -= APPLICATION_FEES[form_type]
-        
+
         # 添加天际币记录，使用中文名称
         record = CoinRecord(
             user_id=current_user.id,
@@ -331,7 +339,7 @@ def submit_application(form_type):
         )
         db.session.add(application)
         db.session.commit()
-        
+
         return jsonify({'message': '申请提交成功'})
     except Exception as e:
         db.session.rollback()
@@ -385,12 +393,12 @@ def activities():
         Activity.end_time > now,
         Activity.status == 'active'
     ).all()
-    
+
     # 确保所有活动时间都有时区信息
     for activity in activities:
         activity.start_time = ensure_timezone(activity.start_time)
         activity.end_time = ensure_timezone(activity.end_time)
-    
+
     return render_template('dashboard/activities.html', activities=activities)
 
 @dashboard_bp.route('/join-activity/<int:activity_id>', methods=['POST'])
@@ -399,20 +407,20 @@ def join_activity(activity_id):
     try:
         activity = Activity.query.get_or_404(activity_id)
         now = get_current_time()
-        
+
         # 确保活动时间有时区信息
         activity.start_time = ensure_timezone(activity.start_time)
         activity.end_time = ensure_timezone(activity.end_time)
-        
+
         if now < activity.start_time:
             return jsonify({'error': '活动还未开始'})
         if now > activity.end_time or activity.status != 'active':
             return jsonify({'error': '活动已结束'})
-            
+
         # 检查是否已参与
         if activity.get_participant(current_user.id):
             return jsonify({'error': '您已参与过此活动'})
-            
+
         # 根据活动类型处理
         if activity.type == 'lottery':
             # 创建参与记录
@@ -422,19 +430,19 @@ def join_activity(activity_id):
             )
             db.session.add(participant)
             db.session.flush()  # 先保存参与记录以获取ID
-            
+
             # 获取奖项配置并随机抽取
             prizes = activity.config.get('prizes', [])
             total_prizes = []
             for prize in prizes:
                 for _ in range(prize['count']):
                     total_prizes.append(prize)
-                    
+
             if total_prizes:
                 # 随机抽取一个奖项
                 prize = random.choice(total_prizes)
                 participant.reward = prize
-                
+
                 # 如果是天际币奖励，立即发放
                 if prize['type'] == 'coins':
                     current_user.coins += prize['amount']
@@ -450,7 +458,7 @@ def join_activity(activity_id):
             else:
                 participant.reward = {'type': 'none'}
                 message = '很遗憾未中奖'
-                
+
         elif activity.type in ['lucky_red_packet', 'fixed_red_packet']:
             # 红包逻辑保持不变
             if len(activity.participants) >= activity.config['count']:
@@ -479,7 +487,7 @@ def join_activity(activity_id):
             else:
                 # 普通红包，固定金额
                 coins = activity.config['coins']
-                
+
             # 创建参与记录
             participant = ActivityParticipant(
                 activity_id=activity_id,
@@ -487,7 +495,7 @@ def join_activity(activity_id):
                 reward={'type': 'coins', 'amount': coins}
             )
             db.session.add(participant)
-            
+
             # 发放天际币
             current_user.coins += coins
             record = CoinRecord(
@@ -497,13 +505,13 @@ def join_activity(activity_id):
             )
             db.session.add(record)
             message = f'获得 {coins} 天际币'
-            
+
         db.session.commit()
         return jsonify({
             'message': message,
             'reward': participant.reward
         })
-        
+
     except ZeroDivisionError as e:
         db.session.rollback()
         return jsonify({'error': str(e)})
@@ -513,20 +521,20 @@ def join_activity(activity_id):
 def draw_activity(activity_id):
     if not current_user.is_admin:
         return jsonify({'error': '无权限'})
-        
+
     activity = Activity.query.get_or_404(activity_id)
     if activity.type != 'metro_quiz' or activity.status != 'active':
         return jsonify({'error': '无效的操作'})
-        
+
     try:
         # 更新活动状态
         activity.status = 'drawing'
-        
+
         # 检查所有参与者的答案
         for participant in activity.participants:
             correct_count = 0
             answers = participant.answers or {}
-            
+
             # 检查每个答案
             if activity.config['city_answer'].lower() in answers.get('city', '').lower():
                 correct_count += 1
@@ -536,16 +544,16 @@ def draw_activity(activity_id):
                 correct_count += 1
             if activity.config['station_answer'].lower() in answers.get('station', '').lower():
                 correct_count += 1
-            
+
             # 计算奖励
             reward_amount = correct_count * activity.config['coins_per_answer']
-            
+
             # 更新参与记录
             participant.reward = {
                 'amount': reward_amount,
                 'correct_count': correct_count
             }
-            
+
             # 发放奖励
             if reward_amount > 0:
                 user = User.query.get(participant.user_id)
@@ -556,7 +564,7 @@ def draw_activity(activity_id):
                     reason=f'地铁竞猜活动"{activity.title}"奖励'
                 )
                 db.session.add(record)
-        
+
         db.session.commit()
         return jsonify({'message': '开奖成功'})
     except Exception as e:
@@ -569,7 +577,7 @@ def draw_activity(activity_id):
 def profile():
     if request.method == 'POST':
         action = request.form.get('action')
-        
+
         if action == 'update_avatar':
             avatar_type = request.form.get('avatar_type')
             try:
@@ -577,7 +585,7 @@ def profile():
                     # 验证是否有QQ头像
                     if avatar_type == 'qq' and not current_user.qq_avatar:
                         return jsonify({'error': '未绑定QQ账号或无QQ头像'})
-                    
+
                     current_user.avatar_type = avatar_type
                     db.session.commit()
                     return jsonify({'message': '头像更新成功'})
@@ -585,24 +593,24 @@ def profile():
                     return jsonify({'error': '不支持的头像类型'})
             except Exception as e:
                 return jsonify({'error': str(e)})
-            
+
         elif action == 'update_email':
             old_code = request.form.get('old_code')
             new_email = request.form.get('new_email')
             new_code = request.form.get('new_code')
-            
+
             # 验证原邮箱验证码
             if not verify_email_code(current_user.email, old_code):
                 return jsonify({'error': '原邮箱验证码错误'})
-            
+
             # 验证新邮箱验证码
             if not verify_email_code(new_email, new_code):
                 return jsonify({'error': '新邮箱验证码错误'})
-            
+
             # 检查新邮箱是否已被使用
             if User.query.filter_by(email=new_email).first():
                 return jsonify({'error': '该邮箱已被使用'})
-            
+
             try:
                 current_user.email = new_email
                 db.session.commit()
@@ -610,7 +618,7 @@ def profile():
             except Exception as e:
                 db.session.rollback()
                 return jsonify({'error': str(e)})
-    
+
     # 计算已绑定的第三方账号数量
     bound_accounts = sum(1 for x in [
         current_user.qq_id,
@@ -618,19 +626,19 @@ def profile():
         current_user.github_id,
         current_user.microsoft_id
     ] if x is not None)
-    
+
     # 获取QQ验证码信息
     redis_client = get_redis_client()
     key = f'qq_code:{current_user.id}'
     qq_code = redis_client.get(key)
     qq_code_expires_at = None
-    
+
     if qq_code:
         ttl = redis_client.ttl(key)
         if ttl > 0:
             qq_code = qq_code.decode()
             qq_code_expires_at = datetime.now() + timedelta(seconds=ttl)
-    
+
     return render_template('dashboard/profile.html',
         bound_accounts=bound_accounts,
         qq_code=qq_code,
@@ -645,14 +653,14 @@ def change_password():
         data = request.get_json()
         code = data.get('code')
         new_password = data.get('new_password')
-        
+
         if not verify_email_code(email, code):
             return jsonify({'error': '验证码错误'})
-            
+
         current_user.set_password(new_password)
         db.session.commit()
         return jsonify({'message': '密码修改成功'})
-    
+
     return render_template('dashboard/change_password.html')
 
 @dashboard_bp.route('/oauth-accounts')
@@ -700,14 +708,14 @@ def admin_vote_management():
 def update_user(user_id):
     if not current_user.is_admin:
         return jsonify({'error': '无权限'}), 403
-        
+
     user = User.query.get_or_404(user_id)
     action = request.form.get('action')
-    
+
     if action == 'update_coins':
         amount = int(request.form.get('amount'))
         reason = request.form.get('reason')
-        
+
         user.coins += amount
         record = CoinRecord(
             user_id=user.id,
@@ -715,12 +723,12 @@ def update_user(user_id):
             reason=reason
         )
         db.session.add(record)
-        
+
     elif action == 'update_role':
         role = request.form.get('role')
         if role in ['visitor', 'player', 'creator', 'admin']:
             user.role = role
-    
+
     db.session.commit()
     return jsonify({'message': '更新成功'})
 
@@ -729,18 +737,18 @@ def update_user(user_id):
 def create_activity():
     if not current_user.is_admin:
         return jsonify({'error': '无权限'}), 403
-        
+
     try:
         title = request.form.get('title')
         type = request.form.get('type')
-        
+
         # 处理时间时添加时区信息
         start_time = localize_time(datetime.strptime(request.form.get('start_time'), '%Y-%m-%dT%H:%M'))
         end_time = localize_time(datetime.strptime(request.form.get('end_time'), '%Y-%m-%dT%H:%M'))
-        
+
         if start_time >= end_time:
             return jsonify({'error': '结束时间必须晚于开始时间'})
-        
+
         config = {}
         if type == 'lucky_red_packet':
             config = {
@@ -769,7 +777,7 @@ def create_activity():
                 'direction_answer': request.form.get('direction_answer'),
                 'station_answer': request.form.get('station_answer')
             }
-        
+
         activity = Activity(
             title=title,
             type=type,
@@ -780,10 +788,10 @@ def create_activity():
         )
         db.session.add(activity)
         db.session.commit()
-        
+
         flash('活动创建成功', 'success')
         return jsonify({'message': '活动创建成功'})
-        
+
     except ValueError as e:
         return jsonify({'error': '请检查输入的数值是否正确'})
     except json.JSONDecodeError:
@@ -797,18 +805,18 @@ def create_activity():
 def create_vote():
     if not current_user.is_admin:
         return jsonify({'error': '无权限'}), 403
-        
+
     title = request.form.get('title')
-    
+
     # 直接使用前端传来的本地时间（UTC+8）并添加时区信息
     tz = timezone(timedelta(hours=8))
     start_time = datetime.strptime(request.form.get('start_time'), '%Y-%m-%d %H:%M').replace(tzinfo=tz)
     end_time = datetime.strptime(request.form.get('end_time'), '%Y-%m-%d %H:%M').replace(tzinfo=tz)
-    
+
     # 验证时间
     if start_time >= end_time:
         return jsonify({'error': '结束时间必须晚于开始时间'})
-    
+
     try:
         vote = Vote(
             title=title,
@@ -829,9 +837,9 @@ def create_vote():
 def end_vote(vote_id):
     if not current_user.is_admin:
         return jsonify({'error': '无权限'}), 403
-        
+
     vote = Vote.query.get_or_404(vote_id)
-    
+
     try:
         vote.status = 'ended'
         vote.end_time = get_current_time()  # 立即结束
@@ -848,16 +856,16 @@ def get_qq_code():
     redis_client = get_redis_client()
     key = f'qq_code:{current_user.id}'
     existing_code = redis_client.get(key)
-    
+
     if existing_code:
         # 如果有未过期的验证码，返回相同的代码
         return jsonify({'message': '验证码已生成'})
-    
+
     # 生成12位随机验证码
     code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
     # 设置20分钟过期
     redis_client.setex(key, 1200, code)
-    
+
     return jsonify({'message': '验证码已生成'})
 
 @dashboard_bp.route('/verify-qq', methods=['POST'])
@@ -865,18 +873,18 @@ def verify_qq():
     qq_number = request.json.get('qq')
     verify_code = request.json.get('code')
     ctrl_key = request.json.get('key')
-    
+
     if not qq_number or not verify_code:
         return jsonify({'error': '参数不完整'})
-    
+
     if ctrl_key != current_app.config['KEY']:
         return jsonify({'error': '密钥错误'})
-    
+
     # 在 Redis 中查找所有匹配的验证码
     redis_client = get_redis_client()
     all_keys = redis_client.keys('qq_code:*')
     target_user = None
-    
+
     # 遍历所有验证码，找到匹配的用户
     for key in all_keys:
         stored_code = redis_client.get(key)
@@ -885,19 +893,19 @@ def verify_qq():
             user_id = int(key.decode().split(':')[1])
             target_user = User.query.get(user_id)
             break
-    
+
     if not target_user:
         return jsonify({'error': '验证码错误或已过期'})
-    
+
     try:
         # 更新用户的 QQ 验证信息
         target_user.verified_qq = qq_number
         target_user.qq_verified_at = get_current_time()
         db.session.commit()
-        
+
         # 删除验证码
         redis_client.delete(f'qq_code:{target_user.id}')
-        
+
         return jsonify({
             'message': 'QQ验证成功',
             'qq_number': qq_number,
@@ -919,10 +927,10 @@ def auto_review():
 def activity_participants(activity_id):
     if not current_user.is_admin:
         return jsonify({'error': '无权限查看'})
-        
+
     activity = Activity.query.get_or_404(activity_id)
     participants = []
-    
+
     for p in activity.participants:
         user = User.query.get(p.user_id)
         if user:
@@ -931,7 +939,7 @@ def activity_participants(activity_id):
                 'created_at': p.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                 'reward': p.reward
             })
-    
+
     return jsonify({
         'participants': participants
     })
@@ -943,26 +951,26 @@ def application_review():
         return render_template('dashboard/error.html',
             message='无权访问此页面',
             redirect_url=url_for('dashboard.index'))
-            
+
     # 获取筛选参数
     form_type = request.args.get('type')
     status = request.args.get('status')
-    
+
     # 构建查询
     query = Application.query
     if form_type:
         query = query.filter_by(form_type=form_type)
     if status:
         query = query.filter_by(status=status)
-        
+
     # 获取申请列表
     applications = query.order_by(Application.created_at.desc()).all()
-    
+
     # 添加中文类型名称
     for app in applications:
         app.type_name = FORM_TYPE_NAMES.get(app.form_type, app.form_type)
         app.user = User.query.get(app.user_id)
-        
+
     return render_template('dashboard/admin/application_review.html', applications=applications)
 
 @dashboard_bp.route('/application/<int:id>')
@@ -970,16 +978,16 @@ def application_review():
 def get_application(id):
     """获取申请详情"""
     application = Application.query.get_or_404(id)
-    
+
     # 检查是否是自己的申请
     if application.user_id != current_user.id and not current_user.is_admin:
         return jsonify({'error': '无权访问'}), 403
-    
+
     # 将内容的键转换为中文
     formatted_content = {}
     for key, value in application.content.items():
         formatted_content[FORM_FIELD_NAMES.get(key, key)] = value
-    
+
     return jsonify({
         'id': application.id,
         'type': FORM_TYPE_NAMES.get(application.form_type, application.form_type),
@@ -993,19 +1001,19 @@ def get_application(id):
 def review_application():
     if not current_user.is_admin:
         return jsonify({'error': '无权操作'}), 403
-        
+
     data = request.get_json()
     application_id = data.get('application_id')
     status = data.get('status')
     remark = data.get('remark')
-    
+
     if not application_id or not status:
         return jsonify({'error': '参数不完整'})
-        
+
     application = Application.query.get_or_404(application_id)
     if application.status != 'pending':
         return jsonify({'error': '该申请已被处理'})
-    
+
     if status == "approved" and remark == "auto" and application.form_type != "player":
         current_year = str(datetime.now().year)
         apps = Application.query.filter_by(form_type=application.form_type, status="approved").all()
@@ -1014,8 +1022,8 @@ def review_application():
             if i.remark[10:14] == current_year:
                 existing.append(i.remark[15:19])
         existing = sorted(set(existing))
-        for i in range(1, 10000):  
-            next_num = f"{i:04d}" 
+        for i in range(1, 10000):
+            next_num = f"{i:04d}"
             if next_num not in existing:
                 number = next_num
                 break
@@ -1023,7 +1031,7 @@ def review_application():
             remark = f"批准文号：际城审字[{current_year}]{number}号"
         else:
             remark = f"批准文号：际交审字[{current_year}]{number}号"
-        
+
     try:
         application.status = status
         application.remark = remark
@@ -1044,7 +1052,7 @@ def review_application():
             elif application.content['permission'] == '仅生存' or application.content['permission'] == '仅创造' and user.role != 'admin' and user.role != 'creator':
                 user.role = 'player'
         db.session.commit()
-        
+
         return jsonify({'message': f'审核成功，{remark}'})
     except Exception as e:
         db.session.rollback()
@@ -1064,7 +1072,7 @@ def oauth_management():
         return render_template('dashboard/error.html',
             message='无权访问此页面',
             redirect_url=url_for('dashboard.index'))
-    
+
     oauth_apps = OAuthApp.query.order_by(OAuthApp.created_at.desc()).all()
     return render_template('dashboard/admin/oauth_management.html',
         oauth_apps=oauth_apps)
@@ -1075,15 +1083,15 @@ def create_oauth_app():
     """创建OAuth应用"""
     if not current_user.is_admin:
         return jsonify({'error': '无权操作'}), 403
-    
+
     data = request.get_json()
     name = data.get('name')
     description = data.get('description')
     redirect_uris = data.get('redirect_uris')
-    
+
     if not all([name, description, redirect_uris]):
         return jsonify({'error': '缺少必要参数'})
-    
+
     try:
         app = OAuthApp(
             client_id=OAuthApp.generate_client_id(),
@@ -1095,7 +1103,7 @@ def create_oauth_app():
         )
         db.session.add(app)
         db.session.commit()
-        
+
         return jsonify({'message': '应用创建成功'})
     except Exception as e:
         db.session.rollback()
@@ -1107,7 +1115,7 @@ def get_oauth_app(id):
     """获取OAuth应用详情"""
     if not current_user.is_admin:
         return jsonify({'error': '无权访问'}), 403
-    
+
     app = OAuthApp.query.get_or_404(id)
     return jsonify({
         'id': app.id,
@@ -1124,7 +1132,7 @@ def regenerate_oauth_secret(id):
     """重新生成Client Secret"""
     if not current_user.is_admin:
         return jsonify({'error': '无权操作'}), 403
-    
+
     app = OAuthApp.query.get_or_404(id)
     try:
         app.client_secret = OAuthApp.generate_client_secret()
@@ -1140,7 +1148,7 @@ def delete_oauth_app(id):
     """删除OAuth应用"""
     if not current_user.is_admin:
         return jsonify({'error': '无权操作'}), 403
-    
+
     app = OAuthApp.query.get_or_404(id)
     try:
         db.session.delete(app)
@@ -1149,7 +1157,7 @@ def delete_oauth_app(id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)})
-    
+
 
 def background_review(application_id, user_id, config, Session):
     """后台审核任务"""
@@ -1158,21 +1166,21 @@ def background_review(application_id, user_id, config, Session):
         try:
             application = db_session.query(Application).get(application_id)
             user = db_session.query(User).get(user_id)
-            
+
             # 进行审核
             passed, notes = auto_review_player_application(application, config['MCRCON_HOST'], config['MCRCON_PASSWORD'], config['MCRCON_PORT'])
-            
+
             if passed == None:
                 application.status = 'pending'
             elif passed == False:
                 application.status = 'rejected'
             else:
                 application.status = 'approved'
-                
+
             application.remark = notes
             application.reviewed_at = datetime.now(pytz.timezone('Asia/Shanghai'))
             application.reviewer_id = None  # 自动审核
-            
+
             if passed == True:
                 if application.content['permission'] == '创造者权限（OP2）' and user.role != 'admin':
                     user.role = 'creator'
@@ -1180,9 +1188,9 @@ def background_review(application_id, user_id, config, Session):
                     user.role = 'visitor'
                 elif application.content['permission'] == '仅生存' or application.content['permission'] == '仅创造' and user.role != 'admin' and user.role != 'creator':
                     user.role = 'player'
-                    
+
             db_session.commit()
-            
+
         except Exception as e:
             db_session.rollback()
             current_app.logger.error(f"后台审核任务失败: {str(e)}")
@@ -1192,24 +1200,24 @@ def background_review(application_id, user_id, config, Session):
 
 
 @dashboard_bp.route('/quick-review/<int:id>', methods=['POST'])
-@login_required 
+@login_required
 def quick_review(id):
     """快速审核(花费30天际币)"""
     # 检查天际币余额
     if current_user.coins < 30:
         return jsonify({'error': '天际币余额不足'})
-    
+
     # 获取申请
     application = Application.query.get_or_404(id)
-    
+
     # 检查是否是自己的申请
     if application.user_id != current_user.id:
         return jsonify({'error': '只能快速审核自己的申请'})
-    
+
     # 检查是否是待审核状态
     if application.status != 'pending':
         return jsonify({'error': '该申请已被处理'})
-    
+
     # 检查是否是玩家权限申请
     if application.form_type != 'player':
         return jsonify({'error': '只能快速审核玩家权限申请'})
@@ -1217,13 +1225,13 @@ def quick_review(id):
     # 克隆必要的配置参数
     config = {
         'MCRCON_HOST': current_app.config['MCRCON_HOST'],
-        'MCRCON_PASSWORD': current_app.config['MCRCON_PASSWORD'], 
+        'MCRCON_PASSWORD': current_app.config['MCRCON_PASSWORD'],
         'MCRCON_PORT': current_app.config['MCRCON_PORT']
     }
-    
+
     # 扣除天际币
     current_user.coins -= 30
-    
+
     # 记录天际币消费
     coin_record = CoinRecord(
         user_id=current_user.id,
@@ -1232,7 +1240,7 @@ def quick_review(id):
     )
     db.session.add(coin_record)
     application.remark = "已提交请求，请稍后"
-    
+
     try:
         db.session.commit()
         Session = scoped_session(sessionmaker(bind=db.engine))
@@ -1256,10 +1264,10 @@ def get_uuid():
     data = request.get_json()
     account_type = data.get('account_type')
     player_name = data.get('player_name')
-    
+
     if not player_name:
         return jsonify({'error': '请输入玩家名'})
-        
+
     if account_type == 'microsoft':
         try:
             response = requests.get(f'https://api.mojang.com/users/profiles/minecraft/{player_name}')
@@ -1272,7 +1280,7 @@ def get_uuid():
             return jsonify({'uuid': formatted_uuid})
         except Exception as e:
             return jsonify({'error': '获取UUID失败，请重试'})
-            
+
     elif account_type == 'offline':
         # 按照 Minecraft 离线模式的 UUID 规则生成
         input_data = f"OfflinePlayer:{player_name}"
@@ -1290,7 +1298,7 @@ def get_uuid():
 
         # 返回 UUID
         return jsonify({'uuid': splitted_uuid(to_hex_string(byte_array))})
-        
+
     return jsonify({'error': '不支持的账号类型'})
 
 @dashboard_bp.route('/game-accounts')
@@ -1303,7 +1311,7 @@ def game_accounts():
         form_type='player',
         status='approved'
     ).all()
-    
+
     # 用集合去重，只保留最新的申请
     accounts = {}
     for app in approved_apps:
@@ -1315,7 +1323,7 @@ def game_accounts():
                 'account_type': app.content.get('game_account_type'),
                 'avatar_url': f'https://minotar.net/avatar/{player_name}'
             }
-    
+
     return render_template('dashboard/game_accounts.html', accounts=accounts.values())
 
 @dashboard_bp.route('/game-account/<player_name>/manage')
@@ -1337,7 +1345,7 @@ def manage_game_account(player_name):
         if player_name_in_application not in player_permissions:
             player_permissions[player_name_in_application] = []
         player_permissions[player_name_in_application].append(i.content.get("permission"))
-    
+
     if not application or player_name not in l:
         return jsonify({'error': '未找到该账号或无权限'}), 404
 
@@ -1360,7 +1368,7 @@ def manage_game_account(player_name):
         available_modes.append('生存')
     if permission_level >= 2:
         available_modes.append('创造')
-    
+
     # 获取可用的资源包
     available_resource_packs = []
     for pack in current_app.config['RESOURCE_PACKS']:
@@ -1378,7 +1386,7 @@ def manage_game_account(player_name):
         'can_spawn': permission_level >= 1,
         'available_resource_packs': available_resource_packs
     }
-    
+
     return render_template('dashboard/game_account_manage.html', account=account_info)
 
 def change_mode(username, mode_t, host, password, port):
@@ -1406,7 +1414,7 @@ def game_account_action():
     data = request.get_json()
     action = data.get('action')
     player_name = data.get('player_name')
-    
+
     # 验证权限
     application = Application.query.filter_by(
         user_id=current_user.id,
@@ -1414,7 +1422,7 @@ def game_account_action():
         status='approved'
     ).order_by(Application.created_at.desc()).all()
     l = []
-    player_permissions = {} 
+    player_permissions = {}
     for i in application:
         player_name_in_application = i.content.get("player_name")
         if player_name_in_application not in l:
@@ -1422,7 +1430,7 @@ def game_account_action():
         if player_name_in_application not in player_permissions:
             player_permissions[player_name_in_application] = []
         player_permissions[player_name_in_application].append(i.content.get("permission"))
-    
+
     if not application or player_name not in l:
         return jsonify({'error': '无权限操作'}), 404
 
@@ -1445,7 +1453,7 @@ def game_account_action():
         available_modes.append('生存')
     if permission_level >= 2:
         available_modes.append('创造')
-    
+
     try:
         if action == 'change_mode':
             mode = data.get('mode')
@@ -1479,7 +1487,7 @@ def game_account_action():
                 send_cmd(f'effect give {player_name} speed infinite 2 true', current_app.config['MCRCON_HOST'], current_app.config['MCRCON_PASSWORD'], current_app.config['MCRCON_PORT'])
         else:
             return jsonify({'error': '未知操作'}), 400
-            
+
         return jsonify({'message': '操作成功'})
     except ValueError as e:
         return jsonify({'error': str(e)}), 500
@@ -1487,18 +1495,18 @@ def game_account_action():
 @dashboard_bp.route('/activity-answers/<int:activity_id>')
 @login_required
 def activity_answers(activity_id):
-    
+
     if not current_user.is_admin:
         return jsonify({'error': '无权限'})
-        
+
     activity = Activity.query.get_or_404(activity_id)
     if activity.type != 'metro_quiz':
         return jsonify({'error': '不支持的活动类型'})
-        
+
     # 如果活动未开奖，不允许查看答题记录
     if activity.status == 'active':
         return jsonify({'error': '活动尚未开奖'})
-        
+
     answers = []
     for participant in activity.participants:
         user = User.query.get(participant.user_id)
@@ -1508,7 +1516,7 @@ def activity_answers(activity_id):
             'reward': participant.reward,
             'created_at': participant.created_at.strftime('%Y-%m-%d %H:%M:%S')
         })
-        
+
     return jsonify({
         'answers': answers
     })
@@ -1525,20 +1533,20 @@ def railway_section():
         form_type='city',
         status='approved'
     ).all()
-    
+
     # 构建铁路局列表
     bureaus = ['天际铁路局']  # 确保天际铁路局始终在最上方
     for app in approved_cities:
         bureau = f"{app.content.get('city_name_cn')}铁路局"
         if bureau not in bureaus:
             bureaus.append(bureau)
-    
+
     # 添加特殊铁路局
     special_bureaus = ['枫丹铁路局', '牧野铁路局']
     for bureau in special_bureaus:
         if bureau not in bureaus:
             bureaus.append(bureau)
-    
+
     return render_template('dashboard/railway_section.html', bureaus=bureaus)
 
 @dashboard_bp.route('/api/train-numbers', methods=['POST'])
@@ -1546,14 +1554,14 @@ def railway_section():
 def submit_train_numbers():
     data = request.json
     applications = data.get('applications', [])
-    
+
     # 计算总费用
     total_cost = len(applications) * 2
-    
+
     # 检查天际币是否足够
     if current_user.coins < total_cost:
         return jsonify({'error': f'天际币不足，需要{total_cost}天际币'})
-        
+
     try:
         for app in applications:
             train_number = TrainNumber(
@@ -1569,10 +1577,10 @@ def submit_train_numbers():
                 return_to=app.get('linkedTo')
             )
             db.session.add(train_number)
-            
+
         # 扣除天际币
         current_user.coins -= total_cost
-        
+
         # 添加天际币记录
         record = CoinRecord(
             user_id=current_user.id,
@@ -1580,7 +1588,7 @@ def submit_train_numbers():
             reason='申请国铁号段'
         )
         db.session.add(record)
-        
+
         db.session.commit()
         return jsonify({'message': '申请成功'})
     except Exception as e:
@@ -1605,10 +1613,10 @@ def get_train_number(train_number):
         prefix=train_number[0],
         number=train_number[1:]
     ).first()
-    
+
     if not train:
         return jsonify({'error': '未找到该车次'})
-    
+
     # 获取关联的折返/去程车次
     related_train = None
     if train.is_return:
@@ -1620,7 +1628,7 @@ def get_train_number(train_number):
         related_train = TrainNumber.query.filter_by(
             return_to=train.train_number
         ).first()
-    
+
     return jsonify({
         'train_number': train.train_number,
         'bureau': train.bureau,
@@ -1639,10 +1647,10 @@ def report_train():
     data = request.json
     train_number = data.get('train_number')
     message = data.get('message')
-    
+
     if not train_number or not message:
         return jsonify({'error': '参数不完整'})
-        
+
     try:
         report = TrainReport(
             train_number=train_number,
@@ -1651,7 +1659,7 @@ def report_train():
         )
         db.session.add(report)
         db.session.commit()
-        
+
         return jsonify({'message': '举报成功'})
     except Exception as e:
         db.session.rollback()
@@ -1680,10 +1688,10 @@ def delete_train_number(train_number):
         number=train_number[1:],
         user_id=current_user.id
     ).first()
-    
+
     if not train:
         return jsonify({'error': '未找到该车次或无权限删除'})
-    
+
     try:
         # 如果是去程车次，同时删除折返车次
         if not train.is_return:
@@ -1692,7 +1700,7 @@ def delete_train_number(train_number):
             ).first()
             if return_train:
                 db.session.delete(return_train)
-        
+
         db.session.delete(train)
         db.session.commit()
         return jsonify({'message': '删除成功'})
@@ -1710,17 +1718,17 @@ def update_train_number(train_number):
         number=train_number[1:],
         user_id=current_user.id
     ).first()
-    
+
     if not train:
         return jsonify({'error': '未找到该车次或无权限修改'})
-        
+
     try:
         train.bureau = data.get('bureau', train.bureau)
         train.start_station = data.get('startStation', train.start_station)
         train.start_station_data = data.get('startStationData', train.start_station_data)
         train.end_station = data.get('endStation', train.end_station)
         train.end_station_data = data.get('endStationData', train.end_station_data)
-        
+
         # 如果有关联的折返车次，同步更新
         if not train.is_return:
             return_train = TrainNumber.query.filter_by(
@@ -1732,7 +1740,7 @@ def update_train_number(train_number):
                 return_train.start_station_data = train.end_station_data
                 return_train.end_station = train.start_station
                 return_train.end_station_data = train.start_station_data
-        
+
         db.session.commit()
         return jsonify({'message': '修改成功'})
     except Exception as e:
@@ -1745,7 +1753,7 @@ def get_reports():
     """获取举报列表"""
     if not current_user.is_admin:
         return jsonify({'error': '无权限'}), 403
-        
+
     reports = TrainReport.query.filter_by(status='pending').all()
     return jsonify([{
         'id': report.id,
@@ -1761,14 +1769,14 @@ def process_report(report_id):
     """处理举报"""
     if not current_user.is_admin:
         return jsonify({'error': '无权限'}), 403
-        
+
     data = request.json
     action = data.get('action')  # 'approve' or 'reject'
-    
+
     report = TrainReport.query.get_or_404(report_id)
     if report.status != 'pending':
         return jsonify({'error': '该举报已被处理'})
-        
+
     try:
         if action == 'approve':
             # 删除被举报的车次及其关联车次
@@ -1776,7 +1784,7 @@ def process_report(report_id):
                 prefix=report.train_number[0],
                 number=report.train_number[1:]
             ).first()
-            
+
             if train:
                 if not train.is_return:
                     return_train = TrainNumber.query.filter_by(
@@ -1791,13 +1799,13 @@ def process_report(report_id):
                     ).first()
                     if original_train:
                         db.session.delete(original_train)
-                        
+
                 db.session.delete(train)
-        
+
         report.status = 'approved' if action == 'approve' else 'rejected'
         report.processed_at = datetime.now(pytz.timezone('Asia/Shanghai'))
         report.processor_id = current_user.id
-        
+
         db.session.commit()
         return jsonify({'message': '处理成功'})
     except Exception as e:
