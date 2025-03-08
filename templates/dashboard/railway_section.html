@@ -3,28 +3,35 @@
 {% block title %}国铁专区{% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-lg shadow p-6">
+<div class="bg-white rounded-lg shadow-lg p-6">
+    <!-- 顶部说明 -->
     <div class="mb-6">
-        <ul class="flex border-b">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">国铁专区</h2>
+        <p class="text-gray-600">在这里您可以申请国铁号段、查询车次信息，以及管理您的申请记录。</p>
+    </div>
+
+    <!-- 标签页导航 -->
+    <div class="mb-6 border-b border-gray-200">
+        <ul class="flex -mb-px">
             <li class="mr-1">
-                <a href="#" class="tab-link active px-4 py-2 rounded-t border-l border-t border-r" data-tab="application">
-                    国铁号段申请
+                <a href="#" class="tab-link inline-block py-2 px-4 text-blue-600 border-b-2 border-blue-600 rounded-t-lg" data-tab="application">
+                    <i class="fas fa-plus-circle mr-2"></i>国铁号段申请
                 </a>
             </li>
             <li class="mr-1">
-                <a href="#" class="tab-link px-4 py-2 rounded-t border-l border-t border-r" data-tab="query">
-                    国铁车次查询
+                <a href="#" class="tab-link inline-block py-2 px-4 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600 rounded-t-lg" data-tab="query">
+                    <i class="fas fa-search mr-2"></i>国铁车次查询
                 </a>
             </li>
             <li class="mr-1">
-                <a href="#" class="tab-link px-4 py-2 rounded-t border-l border-t border-r" data-tab="my-numbers">
-                    我的申请记录
+                <a href="#" class="tab-link inline-block py-2 px-4 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600 rounded-t-lg" data-tab="my-numbers">
+                    <i class="fas fa-list mr-2"></i>我的申请记录
                 </a>
             </li>
             {% if current_user.is_admin %}
             <li class="mr-1">
-                <a href="#" class="tab-link px-4 py-2 rounded-t border-l border-t border-r" data-tab="reports">
-                    举报审核
+                <a href="#" class="tab-link inline-block py-2 px-4 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600 rounded-t-lg" data-tab="reports">
+                    <i class="fas fa-flag mr-2"></i>举报审核
                 </a>
             </li>
             {% endif %}
@@ -33,17 +40,34 @@
 
     <!-- 申请表单 -->
     <div id="application" class="tab-content active">
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-info-circle text-blue-500"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-blue-700">
+                        每条申请需要消耗 2 天际币。折返线路也需要单独申请并消耗天际币。
+                    </p>
+                </div>
+            </div>
+        </div>
+
         <div class="mb-4 flex justify-between items-center">
-            <button id="addApplication" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+            <button id="addApplication" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                <i class="fas fa-plus mr-2"></i>
                 添加新申请
             </button>
             <div class="text-sm text-gray-500">
-                每条申请需要2天际币
+                当前天际币余额：<span class="font-medium text-yellow-600">{{ current_user.coins }}</span>
             </div>
         </div>
-        <div id="applicationList" class="space-y-4"></div>
-        <div class="mt-4">
-            <button id="submitApplications" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+
+        <div id="applicationList" class="space-y-6"></div>
+
+        <div class="mt-6 flex justify-end">
+            <button id="submitApplications" class="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors">
+                <i class="fas fa-check mr-2"></i>
                 提交申请
             </button>
         </div>
@@ -51,18 +75,23 @@
 
     <!-- 查询界面 -->
     <div id="query" class="tab-content hidden">
-        <div class="mb-4">
-            <div class="flex space-x-2">
-                <input type="text" id="queryTrainNumber" 
-                       class="flex-1 border rounded px-3 py-2" 
-                       placeholder="请输入完整车次号(如: G1)">
-                <button id="queryButton" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                    查询
-                </button>
+        <div class="max-w-2xl mx-auto">
+            <div class="mb-6">
+                <div class="flex space-x-2">
+                    <div class="flex-1">
+                        <input type="text" id="queryTrainNumber" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                               placeholder="请输入完整车次号(如: G1)">
+                    </div>
+                    <button id="queryButton" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                        <i class="fas fa-search mr-2"></i>
+                        查询
+                    </button>
+                </div>
             </div>
-        </div>
-        <div id="queryResult" class="hidden border rounded p-4">
-            <!-- 查询结果将在这里显示 -->
+            <div id="queryResult" class="hidden">
+                <!-- 查询结果将在这里显示 -->
+            </div>
         </div>
     </div>
 
@@ -76,8 +105,20 @@
     <!-- 举报审核 -->
     {% if current_user.is_admin %}
     <div id="reports" class="tab-content hidden">
-        <div id="reportsList" class="space-y-4">
-            <!-- 举报列表将在这里显示 -->
+        <div class="max-w-3xl mx-auto bg-white rounded-lg shadow-lg p-6">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900">举报审核</h3>
+                    <p class="text-sm text-gray-500">处理用户提交的车次滥用举报</p>
+                </div>
+                <div class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                    请谨慎处理
+                </div>
+            </div>
+            <div id="reportsList" class="space-y-4">
+                <!-- 举报列表将通过 JavaScript 动态加载 -->
+            </div>
         </div>
     </div>
     {% endif %}
@@ -85,10 +126,10 @@
 
 <!-- 申请表单模板 -->
 <template id="applicationTemplate">
-    <div class="application-card border rounded p-4">
+    <div class="application-card bg-white border border-gray-200 rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow">
         <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center space-x-2">
-                <select class="prefix-select border rounded px-2 py-1">
+            <div class="flex items-center space-x-3">
+                <select class="prefix-select px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     <option value="G">G</option>
                     <option value="C">C</option>
                     <option value="D">D</option>
@@ -96,41 +137,42 @@
                     <option value="K">K</option>
                     <option value="Z">Z</option>
                 </select>
-                <input type="number" class="number-input border rounded px-2 py-1 w-24" 
+                <input type="number" class="number-input w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
                        min="1" max="9999" placeholder="车次号">
-                <div class="number-status ml-2"></div>
+                <div class="number-status"></div>
             </div>
-            <button class="delete-application text-red-500 hover:text-red-700">
+            <button class="delete-application p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors">
                 <i class="fas fa-trash"></i>
             </button>
         </div>
         
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">铁路局</label>
-            <select class="bureau-select w-full border rounded px-3 py-2">
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">铁路局</label>
+            <select class="bureau-select w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 {% for bureau in bureaus %}
                 <option value="{{ bureau }}">{{ bureau }}</option>
                 {% endfor %}
             </select>
         </div>
         
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-2 gap-6">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">始发站</label>
-                <input type="text" class="start-station w-full border rounded px-3 py-2" 
+                <label class="block text-sm font-medium text-gray-700 mb-2">始发站</label>
+                <input type="text" class="start-station w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
                        placeholder="输入站点名称">
                 <div class="station-info mt-2 text-sm"></div>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">终点站</label>
-                <input type="text" class="end-station w-full border rounded px-3 py-2" 
+                <label class="block text-sm font-medium text-gray-700 mb-2">终点站</label>
+                <input type="text" class="end-station w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
                        placeholder="输入站点名称">
                 <div class="station-info mt-2 text-sm"></div>
             </div>
         </div>
         
-        <div class="mt-4">
-            <button class="add-return bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+        <div class="mt-6">
+            <button class="add-return inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors">
+                <i class="fas fa-exchange-alt mr-2"></i>
                 添加折返线路
             </button>
         </div>
@@ -139,14 +181,16 @@
 
 <!-- 举报对话框模板 -->
 <template id="reportDialogTemplate">
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-        <div class="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
-            <h3 class="text-lg font-medium mb-4">举报车次滥用</h3>
-            <textarea class="w-full border rounded p-2 mb-4" rows="4" 
-                      placeholder="请输入举报原因"></textarea>
-            <div class="flex justify-end space-x-2">
-                <button class="cancel-report px-4 py-2 border rounded">取消</button>
-                <button class="confirm-report bg-red-500 text-white px-4 py-2 rounded">
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">举报车次滥用</h3>
+            <textarea class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500" 
+                      rows="4" placeholder="请详细说明举报原因..."></textarea>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button class="cancel-report px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors">
+                    取消
+                </button>
+                <button class="confirm-report px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors">
                     确认举报
                 </button>
             </div>
@@ -174,7 +218,12 @@ async function fetchStations() {
 
 // 设置站点自动完成
 function setupStationAutocomplete() {
-    const stationNames = Object.keys(stations);
+    const stationNames = [];
+    for (const key in stations) {
+        const station = stations[key];
+        stationNames.push(station.name);
+    }
+    
     const datalist = document.createElement('datalist');
     datalist.id = 'stationList';
     
@@ -186,38 +235,62 @@ function setupStationAutocomplete() {
     
     document.body.appendChild(datalist);
     
+    // 为所有站点输入框添加事件监听
     document.querySelectorAll('.start-station, .end-station').forEach(input => {
         input.setAttribute('list', 'stationList');
+        
+        // 监听输入变化
+        input.addEventListener('input', () => {
+            const station_data = Object.values(stations).find(s => s.name === input.value);
+            updateStationInfo(input, station_data);
+            
+            // 如果手动输入的站点名不在预选列表中，清除站点信息
+            if (!station_data) {
+                const infoDiv = input.parentElement.querySelector('.station-info');
+                infoDiv.innerHTML = '';
+            }
+        });
+        
+        // 监听选择预选项
+        input.addEventListener('change', () => {
+            const station_data = Object.values(stations).find(s => s.name === input.value);
+            if (station_data) {
+                updateStationInfo(input, station_data);
+            }
+        });
     });
 }
 
 // 检查车次是否可用
 async function checkTrainNumber(prefix, number) {
     const trainNumber = `${prefix}${number}`;
-    if (checkingNumbers.has(trainNumber)) return;
-    
-    checkingNumbers.add(trainNumber);
-    const statusDiv = document.querySelector(`[data-train-number="${trainNumber}"] .number-status`);
-    if (statusDiv) {
-        statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    if (checkingNumbers.has(trainNumber)) {
+        return;
     }
     
     try {
-        const response = await fetch(`/api/check-train-number/${trainNumber}`);
+        checkingNumbers.add(trainNumber);
+        const response = await fetch(`/dashboard/api/check-train-number/${trainNumber}`);
         const data = await response.json();
         
+        if (data.error) {
+            showToast(data.error, 'error');
+            return false;
+        }
+        
+        const statusDiv = document.querySelector(`[data-train-number="${trainNumber}"] .number-status`);
         if (statusDiv) {
             if (data.available) {
                 statusDiv.innerHTML = '<i class="fas fa-check text-green-500"></i>';
+                return true;
             } else {
-                statusDiv.innerHTML = '<i class="fas fa-exclamation-triangle text-red-500"></i>';
+                statusDiv.innerHTML = '<i class="fas fa-exclamation-circle text-red-500" title="车次已被占用"></i>';
+                return false;
             }
         }
     } catch (error) {
         console.error('检查车次失败:', error);
-        if (statusDiv) {
-            statusDiv.innerHTML = '<i class="fas fa-times text-red-500"></i>';
-        }
+        return false;
     } finally {
         checkingNumbers.delete(trainNumber);
     }
@@ -228,15 +301,20 @@ function updateStationInfo(input, data) {
     const infoDiv = input.parentElement.querySelector('.station-info');
     if (!data) {
         infoDiv.innerHTML = '';
+        input.classList.add('border-red-300');
+        input.classList.remove('border-green-300');
         return;
     }
     
+    input.classList.remove('border-red-300');
+    input.classList.add('border-green-300');
+    
     const colorHex = '#' + data.color.toString(16).padStart(6, '0');
     infoDiv.innerHTML = `
-        <div class="flex items-center space-x-2">
+        <div class="flex items-center space-x-2 mt-2">
             <div class="w-4 h-4 rounded" style="background-color: ${colorHex}"></div>
-            <span>收费区: ${data.zone}</span>
-            <span>坐标: (${data.x}, ${data.z})</span>
+            <span class="text-sm text-gray-600">收费区: ${data.zone}</span>
+            <span class="text-sm text-gray-600">坐标: (${data.x}, ${data.z})</span>
         </div>
     `;
 }
@@ -250,28 +328,50 @@ function addApplicationCard() {
     // 设置事件监听器
     const card_element = card.querySelector('.application-card');
     
-    // 车次号检查
+    // 车次输入监听
     const prefix_select = card.querySelector('.prefix-select');
     const number_input = card.querySelector('.number-input');
+    const status_div = card.querySelector('.number-status');
     
-    function updateTrainNumber() {
+    const checkNumber = async () => {
         const prefix = prefix_select.value;
         const number = number_input.value;
-        if (prefix && number) {
-            card_element.dataset.trainNumber = prefix + number;
-            checkTrainNumber(prefix, number);
+        
+        if (number && number.length > 0) {
+            card_element.dataset.trainNumber = `${prefix}${number}`;
+            await checkTrainNumber(prefix, number);
+        } else {
+            status_div.innerHTML = '';
+            delete card_element.dataset.trainNumber;
         }
-    }
+    };
     
-    prefix_select.addEventListener('change', updateTrainNumber);
-    number_input.addEventListener('input', updateTrainNumber);
+    prefix_select.addEventListener('change', checkNumber);
+    number_input.addEventListener('input', checkNumber);
     
     // 站点选择
     const station_inputs = card.querySelectorAll('.start-station, .end-station');
     station_inputs.forEach(input => {
+        input.setAttribute('list', 'stationList');
+        
+        // 监听输入变化
         input.addEventListener('input', () => {
-            const station_data = stations[input.value];
+            const station_data = Object.values(stations).find(s => s.name === input.value);
             updateStationInfo(input, station_data);
+            
+            // 如果手动输入的站点名不在预选列表中，清除站点信息
+            if (!station_data) {
+                const infoDiv = input.parentElement.querySelector('.station-info');
+                infoDiv.innerHTML = '';
+            }
+        });
+        
+        // 监听选择预选项
+        input.addEventListener('change', () => {
+            const station_data = Object.values(stations).find(s => s.name === input.value);
+            if (station_data) {
+                updateStationInfo(input, station_data);
+            }
         });
     });
     
@@ -316,8 +416,10 @@ function addReturnRoute(prefix, number, originalCard) {
     end_input.value = original_start;
     
     // 更新站点信息
-    updateStationInfo(start_input, stations[original_end]);
-    updateStationInfo(end_input, stations[original_start]);
+    const end_station_data = Object.values(stations).find(s => s.name === original_end);
+    const start_station_data = Object.values(stations).find(s => s.name === original_start);
+    updateStationInfo(start_input, end_station_data);
+    updateStationInfo(end_input, start_station_data);
     
     // 标记为折返线路
     card_element.dataset.returnTo = `${prefix}${number}`;
@@ -347,14 +449,17 @@ async function submitApplications() {
             return;
         }
         
+        const start_station_data = Object.values(stations).find(s => s.name === start_station);
+        const end_station_data = Object.values(stations).find(s => s.name === end_station);
+        
         applications.push({
             prefix,
             number,
             bureau,
             startStation: start_station,
-            startStationData: stations[start_station],
+            startStationData: start_station_data,
             endStation: end_station,
-            endStationData: stations[end_station],
+            endStationData: end_station_data,
             isReturn: !!card.dataset.returnTo,
             linkedTo: card.dataset.returnTo
         });
@@ -366,7 +471,7 @@ async function submitApplications() {
     }
     
     try {
-        const response = await fetch('/api/train-numbers', {
+        const response = await fetch('/dashboard/api/train-numbers', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -391,7 +496,7 @@ async function submitApplications() {
 // 加载我的申请记录
 async function loadMyNumbers() {
     try {
-        const response = await fetch('/api/my-train-numbers');
+        const response = await fetch('/dashboard/api/my-train-numbers');
         const data = await response.json();
         
         const container = document.getElementById('myNumbersList');
@@ -400,9 +505,27 @@ async function loadMyNumbers() {
         data.forEach(train => {
             const card = document.createElement('div');
             card.className = 'border rounded p-4';
+            card.dataset.trainNumber = train.train_number;
+            
+            // 分离前缀和编号
+            const prefix = train.train_number[0];
+            const number = train.train_number.slice(1);
+            
             card.innerHTML = `
                 <div class="flex justify-between items-center mb-2">
-                    <h3 class="text-lg font-medium">${train.train_number}</h3>
+                    <div class="flex items-center space-x-3">
+                        <select class="prefix-select px-2 py-1 border rounded" ${train.is_return ? 'disabled' : ''}>
+                            <option value="G" ${prefix === 'G' ? 'selected' : ''}>G</option>
+                            <option value="C" ${prefix === 'C' ? 'selected' : ''}>C</option>
+                            <option value="D" ${prefix === 'D' ? 'selected' : ''}>D</option>
+                            <option value="T" ${prefix === 'T' ? 'selected' : ''}>T</option>
+                            <option value="K" ${prefix === 'K' ? 'selected' : ''}>K</option>
+                            <option value="Z" ${prefix === 'Z' ? 'selected' : ''}>Z</option>
+                        </select>
+                        <input type="number" class="number-input w-20 px-2 py-1 border rounded" 
+                               value="${number}" min="1" max="9999" ${train.is_return ? 'disabled' : ''}>
+                        <div class="number-status"></div>
+                    </div>
                     <button class="text-red-500 hover:text-red-700" onclick="deleteTrainNumber('${train.train_number}')">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -421,7 +544,38 @@ async function loadMyNumbers() {
                     </div>
                 </div>
             `;
+            
             container.appendChild(card);
+            
+            // 为新添加的车次输入框添加检查事件
+            if (!train.is_return) {
+                const prefix_select = card.querySelector('.prefix-select');
+                const number_input = card.querySelector('.number-input');
+                const status_div = card.querySelector('.number-status');
+                
+                const checkNumber = async () => {
+                    const prefix = prefix_select.value;
+                    const number = number_input.value;
+                    
+                    if (number && number.length > 0) {
+                        card.dataset.trainNumber = `${prefix}${number}`;
+                        if (prefix + number === train.train_number) {
+                            status_div.innerHTML = '<i class="fas fa-check text-green-500"></i>';
+                            return true;
+                        }
+                        await checkTrainNumber(prefix, number);
+                    } else {
+                        status_div.innerHTML = '';
+                        delete card.dataset.trainNumber;
+                    }
+                };
+                
+                prefix_select.addEventListener('change', checkNumber);
+                number_input.addEventListener('input', checkNumber);
+                
+                // 初始检查
+                checkNumber();
+            }
         });
     } catch (error) {
         console.error('加载申请记录失败:', error);
@@ -429,7 +583,54 @@ async function loadMyNumbers() {
     }
 }
 
-// 查询车次
+// 修改 editTrainNumber 函数
+async function editTrainNumber(train_number) {
+    // 获取当前车次的卡片
+    const card = document.querySelector(`[data-train-number="${train_number}"]`);
+    if (!card) return;
+    
+    const prefix_select = card.querySelector('.prefix-select');
+    const number_input = card.querySelector('.number-input');
+    const bureau_select = card.querySelector('.bureau-select');
+    const start_station = card.querySelector('.start-station');
+    const end_station = card.querySelector('.end-station');
+    
+    // 检查车次是否可用
+    const isAvailable = await checkTrainNumber(prefix_select.value, number_input.value);
+    if (!isAvailable && prefix_select.value + number_input.value !== train_number) {
+        showToast('车次已被占用', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/dashboard/api/train-number/${train_number}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                prefix: prefix_select.value,
+                number: number_input.value,
+                bureau: bureau_select.value,
+                startStation: start_station.value,
+                endStation: end_station.value
+            })
+        });
+        
+        const data = await response.json();
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('修改成功', 'success');
+            loadMyNumbers();
+        }
+    } catch (error) {
+        console.error('修改失败:', error);
+        showToast('修改失败，请重试', 'error');
+    }
+}
+
+// 修改 queryTrainNumber 函数
 async function queryTrainNumber() {
     const input = document.getElementById('queryTrainNumber');
     const train_number = input.value.trim();
@@ -440,7 +641,7 @@ async function queryTrainNumber() {
     }
     
     try {
-        const response = await fetch(`/api/train-number/${train_number}`);
+        const response = await fetch(`/dashboard/api/train-number/${train_number}`);
         const data = await response.json();
         
         if (data.error) {
@@ -451,9 +652,34 @@ async function queryTrainNumber() {
         const result_div = document.getElementById('queryResult');
         result_div.classList.remove('hidden');
         
-        // 分离中英文站名
-        const [start_cn, start_en] = data.start_station.split(' | ');
-        const [end_cn, end_en] = data.end_station.split(' | ');
+        // 分离站点的中英文名称
+        function formatStationName(name) {
+            if (name.includes('|')) {
+                const [cn, en] = name.split('|').map(s => s.trim());
+                return `
+                    <div>
+                        <span class="text-gray-900">${cn}</span>
+                        <span class="text-sm text-gray-500 ml-2">${en}</span>
+                    </div>
+                `;
+            }
+            return `<div class="text-gray-900">${name}</div>`;
+        }
+        
+        // 格式化站点数据
+        function formatStationData(data) {
+            if (!data) return '';
+            const colorHex = '#' + data.color.toString(16).padStart(6, '0');
+            return `
+                <div class="mt-2">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-4 h-4 rounded" style="background-color: ${colorHex}"></div>
+                        <span class="text-sm text-gray-600">收费区: ${data.zone}</span>
+                    </div>
+                    <p class="text-sm text-gray-600">坐标: (${data.x}, ${data.z})</p>
+                </div>
+            `;
+        }
         
         result_div.innerHTML = `
             <div class="space-y-4">
@@ -468,44 +694,18 @@ async function queryTrainNumber() {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <p class="font-medium">始发站</p>
-                        <p>${start_cn}</p>
-                        ${start_en ? `<p class="text-gray-500">${start_en}</p>` : ''}
-                        ${data.start_station_data ? `
-                            <div class="mt-2">
-                                <div class="flex items-center space-x-2">
-                                    <div class="w-4 h-4 rounded" 
-                                         style="background-color: #${data.start_station_data.color.toString(16).padStart(6, '0')}">
-                                    </div>
-                                    <span>收费区: ${data.start_station_data.zone}</span>
-                                </div>
-                                <p>坐标: (${data.start_station_data.x}, ${data.start_station_data.z})</p>
-                            </div>
-                        ` : ''}
+                        ${formatStationName(data.start_station)}
+                        ${formatStationData(data.start_station_data)}
                     </div>
                     <div>
                         <p class="font-medium">终点站</p>
-                        <p>${end_cn}</p>
-                        ${end_en ? `<p class="text-gray-500">${end_en}</p>` : ''}
-                        ${data.end_station_data ? `
-                            <div class="mt-2">
-                                <div class="flex items-center space-x-2">
-                                    <div class="w-4 h-4 rounded" 
-                                         style="background-color: #${data.end_station_data.color.toString(16).padStart(6, '0')}">
-                                    </div>
-                                    <span>收费区: ${data.end_station_data.zone}</span>
-                                </div>
-                                <p>坐标: (${data.end_station_data.x}, ${data.end_station_data.z})</p>
-                            </div>
-                        ` : ''}
+                        ${formatStationName(data.end_station)}
+                        ${formatStationData(data.end_station_data)}
                     </div>
                 </div>
                 ${data.related_train ? `
-                    <p class="mt-4">
-                        ${data.is_return ? '去程' : '折返'}车次: 
-                        <a href="#" onclick="queryTrainNumber('${data.related_train}')" 
-                           class="text-blue-500 hover:text-blue-700">
-                            ${data.related_train}
-                        </a>
+                    <p class="text-gray-600">
+                        ${data.is_return ? '去程' : '折返'}车次: ${data.related_train}
                     </p>
                 ` : ''}
             </div>
@@ -534,7 +734,7 @@ function showReportDialog(train_number) {
         }
         
         try {
-            const response = await fetch('/api/report-train', {
+            const response = await fetch('/dashboard/api/report-train', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -561,6 +761,104 @@ function showReportDialog(train_number) {
     document.body.appendChild(dialog_element);
 }
 
+// 处理举报的函数
+async function processReport(reportId, action) {
+    try {
+        const response = await fetch(`/dashboard/api/report/${reportId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ action })
+        });
+        
+        const data = await response.json();
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('处理成功', 'success');
+            loadReports();
+        }
+    } catch (error) {
+        console.error('处理举报失败:', error);
+        showToast('处理失败，请重试', 'error');
+    }
+}
+
+// 删除车次
+async function deleteTrainNumber(train_number) {
+    if (!confirm('确定要删除该车次吗？')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/dashboard/api/train-number/${train_number}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('删除成功', 'success');
+            loadMyNumbers();  // 重新加载列表
+        }
+    } catch (error) {
+        console.error('删除失败:', error);
+        showToast('删除失败，请重试', 'error');
+    }
+}
+
+// 加载举报列表
+async function loadReports() {
+    try {
+        const response = await fetch('/dashboard/api/reports');
+        const data = await response.json();
+        
+        const container = document.getElementById('reportsList');
+        container.innerHTML = '';
+        
+        if (data.length === 0) {
+            container.innerHTML = '<p class="text-gray-500">暂无待处理的举报</p>';
+            return;
+        }
+        
+        data.forEach(report => {
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-all duration-200';
+            card.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div>
+                        <div class="flex items-center space-x-2 mb-2">
+                            <h4 class="text-base font-medium text-gray-900">${report.train_number}</h4>
+                            <span class="px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded">待处理</span>
+                        </div>
+                        <p class="text-sm text-gray-500">举报人: ${report.reporter}</p>
+                        <p class="text-sm text-gray-500">举报时间: ${report.created_at}</p>
+                    </div>
+                    <div class="space-x-2">
+                        <button onclick="processReport(${report.id}, 'approve')"
+                                class="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors">
+                            确认属实
+                        </button>
+                        <button onclick="processReport(${report.id}, 'reject')"
+                                class="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors">
+                            驳回
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-3 p-3 bg-gray-50 rounded text-sm">
+                    <p class="text-gray-700">${report.message}</p>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    } catch (error) {
+        console.error('加载举报列表失败:', error);
+        showToast('加载失败，请重试', 'error');
+    }
+}
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
     fetchStations();
@@ -571,18 +869,28 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const tab = link.dataset.tab;
             
+            // 移除所有标签的高亮样式
             document.querySelectorAll('.tab-link').forEach(l => {
-                l.classList.remove('active', 'bg-white', 'border-b-white');
+                l.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+                l.classList.add('text-gray-600');
             });
+            
+            // 隐藏所有内容
             document.querySelectorAll('.tab-content').forEach(c => {
                 c.classList.add('hidden');
             });
             
-            link.classList.add('active', 'bg-white', 'border-b-white');
+            // 添加当前标签的高亮样式
+            link.classList.remove('text-gray-600');
+            link.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+            
+            // 显示对应内容
             document.getElementById(tab).classList.remove('hidden');
             
             if (tab === 'my-numbers') {
                 loadMyNumbers();
+            } else if (tab === 'reports') {
+                loadReports();
             }
         });
     });

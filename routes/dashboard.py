@@ -4,6 +4,7 @@ from models.user import (
     User, Application, CoinRecord, CheckIn,
     Activity, ActivityParticipant, Vote, VoteRecord
 )
+from models.railway import TrainNumber, TrainReport
 from utils.oauth import qq_oauth, wechat_oauth, github_oauth, microsoft_oauth
 from utils.email import verify_email_code, get_redis_client
 from extensions import db
@@ -22,7 +23,6 @@ import requests, mcrcon
 from utils.geetest import verify_geetest
 from sqlalchemy.orm import scoped_session, sessionmaker
 from models.user import schedule_auto_review
-from models.railway import TrainNumber, TrainReport  # 稍后创建这些模型
 
 
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -1593,11 +1593,31 @@ def submit_train_numbers():
 @login_required
 def check_train_number(train_number):
     """检查车次是否已被占用"""
+    if len(train_number) < 2:
+        return jsonify({'error': '无效的车次号'})
+        
+    prefix = train_number[0]
+    number = train_number[1:]
+    
+    if prefix not in ['G', 'C', 'D', 'T', 'K', 'Z']:
+        return jsonify({'error': '无效的车次前缀'})
+        
+    try:
+        number_int = int(number)
+        if not (1 <= number_int <= 9999):
+            return jsonify({'error': '车次号必须在1-9999之间'})
+    except ValueError:
+        return jsonify({'error': '无效的车次号'})
+    
     existing = TrainNumber.query.filter_by(
-        prefix=train_number[0],
-        number=train_number[1:]
+        prefix=prefix,
+        number=number
     ).first()
-    return jsonify({'available': not bool(existing)})
+    
+    return jsonify({
+        'available': not bool(existing),
+        'message': '车次可用' if not existing else '车次已被占用'
+    })
 
 @dashboard_bp.route('/api/train-number/<train_number>')
 @login_required
@@ -1679,11 +1699,10 @@ def delete_train_number(train_number):
     """删除车次申请"""
     train = TrainNumber.query.filter_by(
         prefix=train_number[0],
-        number=train_number[1:],
-        user_id=current_user.id
+        number=train_number[1:]
     ).first()
 
-    if not train:
+    if not train or train.user_id != current_user.id:
         return jsonify({'error': '未找到该车次或无权限删除'})
 
     try:
@@ -1694,7 +1713,14 @@ def delete_train_number(train_number):
             ).first()
             if return_train:
                 db.session.delete(return_train)
-
+        else:
+            # 如果是折返车次，同时删除去程车次
+            original_train = TrainNumber.query.filter_by(
+                prefix=train.return_to[0],
+                number=train.return_to[1:]
+            ).first()
+            if original_train:
+                db.session.delete(original_train)
         db.session.delete(train)
         db.session.commit()
         return jsonify({'message': '删除成功'})

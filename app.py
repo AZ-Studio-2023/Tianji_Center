@@ -12,6 +12,7 @@ from flask_babel import Babel
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from models.user import schedule_auto_review
+from models.railway import TrainNumber, TrainReport
 
 def create_app():
     app = Flask(__name__)
@@ -40,7 +41,12 @@ def create_app():
         return User.query.get(int(user_id))
     
     with app.app_context():
-        db.create_all()
+        try:
+            # 创建所有表
+            db.create_all()
+            print("数据表创建成功")
+        except Exception as e:
+            print(f"创建数据表时出错: {str(e)}")
 
     # 注册蓝图
     from routes.auth import auth_bp
