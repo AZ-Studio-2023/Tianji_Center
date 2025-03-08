@@ -113,71 +113,86 @@ function closeModal() {
 
 function formatApplicationContent(data) {
     let html = '<table class="min-w-full divide-y divide-gray-200">';
-    html += '<tbody class="bg-white divide-y divide-gray-200">';
-    
-    // 添加基本信息
-    html += `
-        <tr>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">申请类型</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${data.type}申请</td>
-        </tr>
-        <tr>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">提交时间</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${data.created_at}</td>
-        </tr>
-    `;
-    
-    // 添加申请内容
-    for (const [key, value] of Object.entries(data.content)) {
-        // 跳过空值
-        if (!value || value === '') continue;
-        
-        // 处理逗号分隔的数组
-        if (Array.isArray(value)) {
-            const items = Array.isArray(value) ? value : value.split(',');
-            html += `
-                <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">${key}</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <tbody>
-                                ${items.map((item, index) => {
-                                    if (typeof item === 'object' && item !== null) {
-                                        // 如果 item 是字典，则按字典项生成表格列
-                                        const dictionaryColumns = Object.keys(item).map(subKey => `
-                                            <tr>
-                                                <td class="pr-4 py-2 whitespace-nowrap text-sm text-gray-500">${subKey}</td>
-                                                <td class="py-2 text-sm text-gray-900">${item[subKey]}</td>
-                                            </tr>
-                                        `).join('');
-                                        return dictionaryColumns;
-                                    } else {
-                                        // 否则正常显示单个项
-                                        return `
-                                            <tr>
-                                                <td class="pr-4 py-2 whitespace-nowrap text-sm text-gray-500">${index + 1}</td>
-                                                <td class="py-2 text-sm text-gray-900">${item.trim()}</td>
-                                            </tr>
-                                        `;
-                                    }
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    </td>
-                </tr>
-            `;
-        } else {
-            html += `
-                <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">${key}</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">${value}</td>
-                </tr>
-            `;
+        html += '<tbody class="bg-white divide-y divide-gray-200">';
+
+        // 添加基本信息
+        html += `
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">申请类型</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${data.type}申请</td>
+            </tr>
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">提交时间</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${data.created_at}</td>
+            </tr>
+        `;
+
+        // 添加申请内容
+        for (const [key, value] of Object.entries(data.content)) {
+            if (!value || value === '') continue;
+
+            if (Array.isArray(value)) {
+                const toggleId = `toggle-${key.replace(/\s+/g, '-')}`;
+                const buttonId = `btn-${toggleId}`;
+
+                html += `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">${key}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">
+                            <button id="${buttonId}"
+                                class="px-4 py-1 text-sm text-blue-600 border border-blue-600 rounded hover:bg-blue-100 transition"
+                                onclick="toggleVisibility('${toggleId}', '${buttonId}')">
+                                展开
+                            </button>
+                            <div id="${toggleId}" class="hidden mt-2">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <tbody>
+                                        ${value.map((item, index) => {
+                                            if (typeof item === 'object' && item !== null) {
+                                                return Object.keys(item).map(subKey => `
+                                                    <tr>
+                                                        <td class="pr-4 py-2 whitespace-nowrap text-sm text-gray-500">${subKey}</td>
+                                                        <td class="py-2 text-sm text-gray-900">${item[subKey]}</td>
+                                                    </tr>
+                                                `).join('');
+                                            } else {
+                                                return `
+                                                    <tr>
+                                                        <td class="pr-4 py-2 whitespace-nowrap text-sm text-gray-500">${index + 1}</td>
+                                                        <td class="py-2 text-sm text-gray-900">${item.trim()}</td>
+                                                    </tr>
+                                                `;
+                                            }
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                html += `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">${key}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${value}</td>
+                    </tr>
+                `;
+            }
         }
+
+        html += '</tbody></table>';
+        return html;
     }
-    
-    html += '</tbody></table>';
-    return html;
+
+function toggleVisibility(contentId, buttonId) {
+    const content = document.getElementById(contentId);
+    const button = document.getElementById(buttonId);
+
+    if (content && button) {
+        const isHidden = content.classList.contains("hidden");
+        content.classList.toggle("hidden"); // 切换隐藏状态
+        button.textContent = isHidden ? "隐藏" : "展开"; // 修改按钮文字
+    }
 }
 
 function reviewApplication(id, status) {
@@ -189,7 +204,7 @@ function reviewApplication(id, status) {
     if (status === 'approved') {
         remark = prompt('请输入备注：');
     }
-    
+
     fetch('/dashboard/review-application', {
         method: 'POST',
         headers: {

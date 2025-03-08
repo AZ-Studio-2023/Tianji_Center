@@ -28,8 +28,8 @@
             <!-- 基本信息 -->
             <div>
                 <label class="block text-gray-700 font-medium mb-2">您的昵称</label>
-                <input type="text" name="nickname" required
-                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" name="nickname" value="{{ current_user.username }}" readonly
+                       class="w-full px-3 py-2 border rounded-lg bg-gray-100 focus:outline-none">
             </div>
 
             <div>
@@ -97,7 +97,7 @@
             <div>
                 <label class="block text-gray-700 font-medium mb-2">线路设计最高时速</label>
                 <div class="space-y-2">
-                    {% for speed in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120] %}
+                    {% for speed in [20, 40, 60, 80, 120, 160, 200, 300, 900] %}
                     <label class="flex items-center">
                         <input type="radio" name="max_speed" value="{{ speed }}" required
                                class="form-radio text-blue-500">
@@ -176,7 +176,7 @@
             {% endif %}
 
             <div class="flex justify-end">
-                <button type="submit" 
+                <button type="submit"
                         class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
                     提交申请
                 </button>
@@ -206,7 +206,7 @@ function addStation(direction) {
     const div = document.createElement('div');
     div.className = 'flex space-x-2';
     div.innerHTML = `
-        <input type="text" name="${direction}_stations[]" 
+        <input type="text" name="${direction}_stations[]"
                class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                ${direction === 'up' ? 'required' : ''}>
         <button type="button" onclick="removeStation(this)"
@@ -221,7 +221,7 @@ function addStation(direction) {
 function removeStation(button) {
     button.parentElement.remove();
 }
-{% if config.ENABLE_GEETEST %}    
+{% if config.ENABLE_GEETEST %}
 initGeetest4({
     captchaId: '{{ config.GEETEST_ID }}'
 },function (captcha) {
@@ -231,7 +231,7 @@ initGeetest4({
 {% endif %}
 function submitApplication(event) {
     event.preventDefault();
-    {% if config.ENABLE_GEETEST %}  
+    {% if config.ENABLE_GEETEST %}
     const result = gt.getValidate();
     if (!result) {
         return showToast("请先完成行为验证", "error")
@@ -239,9 +239,9 @@ function submitApplication(event) {
     {% endif %}
     const form = event.target;
     const formData = new FormData(form);
-    {% if not config.ENABLE_GEETEST %}  
+    {% if not config.ENABLE_GEETEST %}
     const data = {};
-    
+
     // 特殊处理站点数组
     const upStations = [];
     const downStations = [];
@@ -251,19 +251,19 @@ function submitApplication(event) {
     formData.getAll('down_stations[]').forEach(station => {
         if (station.trim()) downStations.push(station.trim());
     });
-    
+
     formData.forEach((value, key) => {
         if (!key.endsWith('[]')) {
             data[key] = value;
         }
     });
-    
+
     data.up_stations = upStations;
     data.down_stations = downStations;
     {% endif %}
-    {% if config.ENABLE_GEETEST %}  
+    {% if config.ENABLE_GEETEST %}
     const base_data = {};
-    
+
     // 特殊处理站点数组
     const upStations = [];
     const downStations = [];
@@ -273,13 +273,13 @@ function submitApplication(event) {
     formData.getAll('down_stations[]').forEach(station => {
         if (station.trim()) downStations.push(station.trim());
     });
-    
+
     formData.forEach((value, key) => {
         if (!key.endsWith('[]')) {
             base_data[key] = value;
         }
     });
-    
+
     base_data.up_stations = upStations;
     base_data.down_stations = downStations;
     const data =  { ...result, ...base_data};
@@ -314,4 +314,4 @@ function submitApplication(event) {
     });
 }
 </script>
-{% endblock %} 
+{% endblock %}

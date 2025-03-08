@@ -57,23 +57,23 @@
     </div>
 </div>
 
-<!-- 添加申请详情模态框 -->
-<div id="viewModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
-    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white">
-        <div class="flex justify-between items-center pb-3">
-            <h3 class="text-xl font-bold">申请详情</h3>
-            <button onclick="closeModal('viewModal')" class="text-gray-400 hover:text-gray-500">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div id="applicationDetails" class="mt-4 space-y-4">
-            <!-- 申请详情将通过JavaScript动态填充 -->
-        </div>
-        <div class="mt-6 flex justify-end">
-            <button onclick="closeModal('viewModal')"
-                    class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">
-                关闭
-            </button>
+<!-- 查看申请详情的模态框 -->
+<div id="viewModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 hidden">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg w-full max-w-4xl" style="max-height: 80vh;">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold">申请详情</h3>
+                    <button onclick="closeModal('viewModal')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6 overflow-y-auto" style="max-height: calc(80vh - 85px);">
+                <div id="applicationDetails">
+                    <!-- 动态加载申请内容 -->
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -90,42 +90,91 @@ function viewApplication(id) {
 }
 
 function formatApplicationDetails(data) {
-    let html = `
-        <div class="grid grid-cols-1 gap-4">
-            <div>
-                <div class="text-sm font-medium text-gray-500">申请类型</div>
-                <div class="mt-1">${data.type}</div>
-            </div>
-            <div>
-                <div class="text-sm font-medium text-gray-500">提交时间</div>
-                <div class="mt-1">${data.created_at}</div>
-            </div>
-            <div>
-                <div class="text-sm font-medium text-gray-500">状态</div>
-                <div class="mt-1">${formatStatus(data.status)}</div>
-            </div>
-            <div>
-                <div class="text-sm font-medium text-gray-500">申请内容</div>
-                <div class="mt-1 space-y-2">
-    `;
-    
-    // 遍历申请内容
-    for (const [key, value] of Object.entries(data.content)) {
-        html += `
-            <div class="grid grid-cols-3 gap-4">
-                <div class="font-medium">${key}:</div>
-                <div class="col-span-2">${value}</div>
-            </div>
-        `;
-    }
-    
+    let html = '<table class="min-w-full divide-y divide-gray-200">';
+    html += '<tbody class="bg-white divide-y divide-gray-200">';
+
+    // 添加基本信息
     html += `
-                </div>
-            </div>
-        </div>
+        <tr>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">申请类型</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${data.type}申请</td>
+        </tr>
+        <tr>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">提交时间</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${data.created_at}</td>
+        </tr>
+        <tr>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">状态</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatStatus(data.status)}</td>
+        </tr>
     `;
-    
+
+    // 添加申请内容
+    for (const [key, value] of Object.entries(data.content)) {
+        if (!value || value === '') continue;
+
+        if (Array.isArray(value)) {
+            const toggleId = `toggle-${key.replace(/\s+/g, '-')}`;
+            const buttonId = `btn-${toggleId}`;
+
+            html += `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">${key}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">
+                        <button id="${buttonId}"
+                            class="px-4 py-1 text-sm text-blue-600 border border-blue-600 rounded hover:bg-blue-100 transition"
+                            onclick="toggleVisibility('${toggleId}', '${buttonId}')">
+                            展开
+                        </button>
+                        <div id="${toggleId}" class="hidden mt-2">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <tbody>
+                                    ${value.map((item, index) => {
+                                        if (typeof item === 'object' && item !== null) {
+                                            return Object.keys(item).map(subKey => `
+                                                <tr>
+                                                    <td class="pr-4 py-2 whitespace-nowrap text-sm text-gray-500">${subKey}</td>
+                                                    <td class="py-2 text-sm text-gray-900">${item[subKey]}</td>
+                                                </tr>
+                                            `).join('');
+                                        } else {
+                                            return `
+                                                <tr>
+                                                    <td class="pr-4 py-2 whitespace-nowrap text-sm text-gray-500">${index + 1}</td>
+                                                    <td class="py-2 text-sm text-gray-900">${item.trim()}</td>
+                                                </tr>
+                                            `;
+                                        }
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        } else {
+            html += `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">${key}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${value}</td>
+                </tr>
+            `;
+        }
+    }
+
+    html += '</tbody></table>';
     return html;
+}
+
+function toggleVisibility(contentId, buttonId) {
+    const content = document.getElementById(contentId);
+    const button = document.getElementById(buttonId);
+
+    if (content && button) {
+        const isHidden = content.classList.contains("hidden");
+        content.classList.toggle("hidden"); // 切换隐藏状态
+        button.textContent = isHidden ? "隐藏" : "展开"; // 修改按钮文字
+    }
 }
 
 function formatStatus(status) {
@@ -159,4 +208,4 @@ function quickReview(id) {
 }
 </script>
 
-{% endblock %} 
+{% endblock %}
