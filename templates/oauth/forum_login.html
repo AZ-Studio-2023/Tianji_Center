@@ -1,34 +1,62 @@
 {% extends "dashboard/base.html" %}
 
-{% block title %}登录到TianJi Forum{% endblock %}
+{% block title %}登录确认{% endblock %}
 
 {% block content %}
 <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
         <!-- 应用信息卡片 -->
         <div class="bg-white rounded-lg shadow-xl overflow-hidden">
+            <!-- 顶部应用信息 -->
+            <div class="px-6 py-8 border-b border-gray-200">
+                <div class="flex items-center space-x-4">
+                    <div class="w-16 h-16 rounded-lg bg-blue-500 flex items-center justify-center text-white text-2xl font-bold">
+                        F
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Tianji Forum</h2>
+                        <p class="text-sm text-gray-500">想要使用您的账号登录</p>
+                    </div>
+                </div>
+                <p class="mt-4 text-sm text-gray-600">天际MTR服务站群 - Tianji Forum（天际论坛）</p>
+            </div>
 
-            <div class="px-6 py-4">
-                <p class="text-lg font-semibold">登录到TianJi Forum</p>
+            <!-- 权限列表 -->
+            <div class="px-6 py-4 bg-gray-50">
+                <h3 class="text-sm font-medium text-gray-700">将获得以下权限：</h3>
+                <ul class="mt-3 space-y-2">
+                    <li class="text-sm text-gray-600">• 基本信息（用户名、邮箱）</li>
+                    <li class="text-sm text-gray-600">• 个人资料</li>
+                </ul>
+            </div>
+
+            <!-- 提示 -->
+            <div class="px-6 py-4 bg-blue-50">
+                <p class="text-sm text-blue-700">
+                    确认后，您将在Tianji Forum上使用Tianji Center账号登录。
+                </p>
             </div>
 
             <!-- 操作按钮 -->
             <div class="px-6 py-4 bg-gray-50">
                 <form method="post" action="{{ url_for('discourse.authenticate') }}" class="flex space-x-4">
-                    <input type="hidden" name="sso" value="{{ sso }}">
-                    <input type="hidden" name="sig" value="{{ sig }}">
-
+                    <input type="hidden" name="client_id" value="{{ client_id }}">
+                    <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
+                    <input type="hidden" name="scope" value="{{ scope }}">
+                    <input type="hidden" name="state" value="{{ state }}">
+                    
                     <button type="submit" name="action" value="deny"
                             class="flex-1 py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                        取消
+                        拒绝登录
                     </button>
                     <button type="submit" name="action" value="allow"
                             class="flex-1 py-2 px-4 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                        确认
+                        确认登录
                     </button>
                 </form>
             </div>
         </div>
+
     </div>
 </div>
-{% endblock %}
+{% endblock %} 
