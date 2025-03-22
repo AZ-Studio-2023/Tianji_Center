@@ -23,6 +23,9 @@ import requests, mcrcon
 from utils.geetest import verify_geetest
 from sqlalchemy.orm import scoped_session, sessionmaker
 from models.user import schedule_auto_review
+from flask_mail import Message
+from extensions import db, mail
+
 
 
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -1832,3 +1835,30 @@ def process_report(report_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)})
+
+@dashboard_bp.route('/reset-password/<int:userID>', methods=['POST'])
+@login_required
+def resetPassword(userID):
+    if not current_user.is_admin:
+        return jsonify({'error': '无权限'}), 403
+    user = User.query.filter_by(id=userID).first()
+    if not user:
+        return "用户不存在", 400
+    pw = ''.join(''.join(random.choices(string.ascii_letters + string.digits, k=12)))
+    user.set_password(pw)
+    db.session.commit()
+    email = user.email
+    try:
+        # 发送邮件
+        msg = Message(
+            '密码重置 - Tianji Center',
+            sender=current_app.config['MAIL_USERNAME'],
+            recipients=[email]
+        )
+        msg.body = f'您的新密码是：{pw}。请尽快修改！若非本人要求，请立即联系我们！'
+        mail.send(msg)
+        
+        return jsonify({'message': '已发送'})
+    except Exception as e:
+        current_app.logger.error(f'发送失败: {str(e)}')
+        return jsonify({'error': '发送失败，请重试'})

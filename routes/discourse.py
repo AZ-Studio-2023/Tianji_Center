@@ -61,7 +61,6 @@ def authenticate():
         "username": user.username,
         "avatar_url": user.avatar_url,  # 用户头像 URL
     }
-
     # 编码用户数据为 URL 格式
     payload = urllib.parse.urlencode(user_data)
     encoded_payload = base64.b64encode(payload.encode()).decode()
