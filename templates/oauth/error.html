@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth 授权错误</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f8f8;
+            text-align: center;
+            padding: 50px;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: inline-block;
+            max-width: 400px;
+        }
+        h1 {
+            color: #d9534f;
+        }
+        p {
+            color: #333;
+        }
+        .btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>OAuth 授权错误</h1>
+    <p><strong>错误类型：</strong> {{ error }}</p>
+    <p><strong>错误描述：</strong> {{ description }}</p>
+
+    {% if request.args.get('redirect_uri') %}
+        <a href="{{ request.args.get('redirect_uri') }}" class="btn">返回应用</a>
+    {% else %}
+        <a href="/" class="btn">返回首页</a>
+    {% endif %}
+</div>
+
+</body>
+</html>
