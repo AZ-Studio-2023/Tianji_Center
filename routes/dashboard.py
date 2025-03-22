@@ -920,7 +920,8 @@ def auto_review():
     KEY = request.json.get('key')
     if KEY != current_app.config['KEY']:
         return jsonify({'error': '密钥错误'})
-    schedule_auto_review(current_app.config['MCRCON_HOST'], current_app.config['MCRCON_PASSWORD'], current_app.config['MCRCON_PORT']),
+    schedule_auto_review(current_app.config['MCRCON_HOST'], current_app.config['MCRCON_PASSWORD'], current_app.config['MCRCON_PORT'])
+    return jsonify({'code': 200, "msg": "OK"})
 
 @dashboard_bp.route('/activity-participants/<int:activity_id>')
 @login_required
