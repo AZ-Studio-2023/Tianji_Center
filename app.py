@@ -24,22 +24,22 @@ def create_app():
     login_manager.init_app(app)
     migrate = Migrate(app, db)
     babel = Babel(app)
-    
+
     # 配置 Redis
     redis.connection_pool.connection_kwargs.update({
         'host': app.config['REDIS_HOST'],
         'port': app.config['REDIS_PORT'],
         'db': app.config['REDIS_DB']
     })
-    
+
     # 配置 login_manager
     login_manager.login_view = 'auth.login'
     login_manager.login_message = '请先登录'
-    
+
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
-    
+
     with app.app_context():
         try:
             # 创建所有表
@@ -53,10 +53,12 @@ def create_app():
     from routes.dashboard import dashboard_bp
     from routes.oauth import oauth_bp
     from routes.structure import structure_bp
+    from routes.discourse import discourse_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(oauth_bp, url_prefix='/oauth')
     app.register_blueprint(structure_bp, url_prefix='/structure')
+    app.register_blueprint(discourse_bp, url_prefix='/discourse')
 
     @app.route('/')
     def index():
@@ -83,12 +85,12 @@ def create_app():
                 user_id=current_user.id,
                 status='approved'
             ).all()
-            
+
             for app in approved_applications:
                 if app.content.get('permission') in ['仅创造', '创造者权限（OP2）']:
                     return True
             return False
-        
+
         return {
             'has_creative_permission': has_creative_permission
         }
@@ -98,4 +100,4 @@ def create_app():
 app = create_app()
 
 if __name__ == '__main__':
-    app.run(debug=True) 
+    app.run(debug=True)
