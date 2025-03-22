@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, session
 from flask_login import login_required, current_user
+from flask import current_app
 import hmac
 import hashlib
 import base64
@@ -9,7 +10,6 @@ from models.user import User
 
 discourse_bp = Blueprint('discourse', __name__)
 
-DISCOURSE_SECRET = "your_discourse_shared_secret"
 DISCOURSE_SSO_URL = "https://forum.tjmtr.world/session/sso_login"
 
 @discourse_bp.route('/login')
@@ -36,7 +36,7 @@ def login():
 
 def validate_signature(sso, sig):
     """验证 SSO 签名"""
-    computed_sig = hmac.new(DISCOURSE_SECRET.encode(), sso.encode(), hashlib.sha256).hexdigest()
+    computed_sig = hmac.new(current_app.config['DISCOUESE_SSO_KEY'].encode(), sso.encode(), hashlib.sha256).hexdigest()
     return computed_sig == sig
 
 @discourse_bp.route('/authenticate', methods=['POST'])
@@ -67,7 +67,7 @@ def authenticate():
     encoded_payload = base64.b64encode(payload.encode()).decode()
 
     # 生成签名
-    sig = hmac.new(DISCOURSE_SECRET.encode(), encoded_payload.encode(), hashlib.sha256).hexdigest()
+    sig = hmac.new(current_app.config['DISCOUESE_SSO_KEY'].encode(), encoded_payload.encode(), hashlib.sha256).hexdigest()
 
     # 重定向回 Discourse 完成 SSO 登录
     discourse_redirect_url = f"{DISCOURSE_SSO_URL}?sso={encoded_payload}&sig={sig}"
