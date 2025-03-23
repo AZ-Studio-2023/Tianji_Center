@@ -42,6 +42,12 @@ def validate_signature(sso, sig):
 @discourse_bp.route('/authenticate', methods=['POST'])
 def authenticate():
     """用户提交的认证信息（用户名）"""
+
+    action = request.form.get('action')
+
+    if action != 'allow':
+        return redirect("https://forum.tjmtr.world/")
+
     username = current_user.username
 
     # 从数据库中查找用户
