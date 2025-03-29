@@ -86,3 +86,6 @@ class Config:
 
     # 开放性试题审核配置
     AI_KEY = os.getenv("AI_KEY") # AI密钥
+
+    # 在线时长API配置
+    ONLINE_TIME_API_URL = os.getenv("ONLINE_TIME_API_URL") 
