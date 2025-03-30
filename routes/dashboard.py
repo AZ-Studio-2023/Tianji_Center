@@ -25,6 +25,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from models.user import schedule_auto_review
 from flask_mail import Message
 from extensions import db, mail
+from utils.online import get_all, get_user
 
 
 
@@ -111,52 +112,27 @@ def index():
         'approved': Application.query.filter_by(user_id=current_user.id, status='approved').count(),
         'rejected': Application.query.filter_by(user_id=current_user.id, status='rejected').count()
     }
-
-    # 检查今日是否已签到
-    today = datetime.utcnow().date()
+    
+    # 获取当前投票
+    current_votes = Vote.query.filter(
+        Vote.end_time > datetime.now()
+    ).order_by(Vote.end_time.asc()).all()
+    
+    # 获取今日是否已签到
     today_checkin = CheckIn.query.filter(
         CheckIn.user_id == current_user.id,
-        db.func.date(CheckIn.created_at) == today
+        db.func.date(CheckIn.created_at) == datetime.now().date()
     ).first()
-
-    # 获取当前有效的投票
-    now = get_current_time()
-    current_votes = Vote.query.filter(
-        db.or_(
-            # 已开始且未结束的投票
-            db.and_(
-                Vote.start_time <= now,
-                Vote.end_time > now,
-                Vote.status == 'active'
-            ),
-            # 即将开始的投票（24小时内）
-            db.and_(
-                Vote.start_time > now,
-                Vote.start_time <= now + timedelta(days=1),
-                Vote.status == 'active'
-            )
-        )
-    ).order_by(Vote.start_time).all()
-
-    # 检查用户是否已对每个投票进行投票
-    for vote in current_votes:
-        vote.has_voted = VoteRecord.query.filter_by(
-            vote_id=vote.id,
-            user_id=current_user.id
-        ).first() is not None
-        # 添加投票状态，确保时间都有时区信息
-        vote.is_active = now >= localize_time(vote.start_time) and now <= localize_time(vote.end_time)
-        # 为模板中的显示转换时区
-        vote.start_time = localize_time(vote.start_time)
-        vote.end_time = localize_time(vote.end_time)
-
+    
+    # 获取在线时长排行榜
+    online_ranking = get_all()
+    
     return render_template('dashboard/index.html',
-        stats=stats,
-        today_checkin=today_checkin,
-        today_checkin_coins=today_checkin.coins if today_checkin else None,
-        current_votes=current_votes,
-        current_time=now
-    )
+                         stats=stats,
+                         current_votes=current_votes,
+                         today_checkin=today_checkin,
+                         current_time=datetime.now(),
+                         online_ranking=online_ranking)
 
 @dashboard_bp.route('/checkin', methods=['POST'])
 @login_required
@@ -580,73 +556,56 @@ def draw_activity(activity_id):
 def profile():
     if request.method == 'POST':
         action = request.form.get('action')
-
         if action == 'update_avatar':
             avatar_type = request.form.get('avatar_type')
-            try:
-                if avatar_type in ['cravatar', 'qq']:
-                    # 验证是否有QQ头像
-                    if avatar_type == 'qq' and not current_user.qq_avatar:
-                        return jsonify({'error': '未绑定QQ账号或无QQ头像'})
-
-                    current_user.avatar_type = avatar_type
-                    db.session.commit()
-                    return jsonify({'message': '头像更新成功'})
-                else:
-                    return jsonify({'error': '不支持的头像类型'})
-            except Exception as e:
-                return jsonify({'error': str(e)})
-
+            if avatar_type in ['cravatar', 'qq']:
+                current_user.avatar_type = avatar_type
+                db.session.commit()
+                return jsonify({'success': True})
+            return jsonify({'error': '无效的头像类型'})
         elif action == 'update_email':
             old_code = request.form.get('old_code')
             new_email = request.form.get('new_email')
             new_code = request.form.get('new_code')
-
+            
             # 验证原邮箱验证码
             if not verify_email_code(current_user.email, old_code):
                 return jsonify({'error': '原邮箱验证码错误'})
-
+            
             # 验证新邮箱验证码
             if not verify_email_code(new_email, new_code):
                 return jsonify({'error': '新邮箱验证码错误'})
-
-            # 检查新邮箱是否已被使用
-            if User.query.filter_by(email=new_email).first():
-                return jsonify({'error': '该邮箱已被使用'})
-
-            try:
-                current_user.email = new_email
-                db.session.commit()
-                return jsonify({'message': '邮箱更新成功'})
-            except Exception as e:
-                db.session.rollback()
-                return jsonify({'error': str(e)})
-
-    # 计算已绑定的第三方账号数量
-    bound_accounts = sum(1 for x in [
-        current_user.qq_id,
-        current_user.wechat_id,
-        current_user.github_id,
-        current_user.microsoft_id
-    ] if x is not None)
-
-    # 获取QQ验证码信息
-    redis_client = get_redis_client()
-    key = f'qq_code:{current_user.id}'
-    qq_code = redis_client.get(key)
+            
+            # 更新邮箱
+            current_user.email = new_email
+            db.session.commit()
+            return jsonify({'success': True})
+    
+    # 获取QQ验证码
+    qq_code = None
     qq_code_expires_at = None
-
-    if qq_code:
-        ttl = redis_client.ttl(key)
-        if ttl > 0:
-            qq_code = qq_code.decode()
-            qq_code_expires_at = datetime.now() + timedelta(seconds=ttl)
-
+    if not current_user.verified_qq:
+        redis_client = get_redis_client()
+        qq_code_key = f'qq_code:{current_user.id}'
+        qq_code = redis_client.get(qq_code_key)
+        if qq_code:
+            qq_code_expires_at = datetime.fromtimestamp(redis_client.ttl(qq_code_key))
+    
+    # 获取已绑定账号数量
+    bound_accounts = Application.query.filter_by(
+        user_id=current_user.id,
+        status='approved',
+        form_type='player'
+    ).count()
+    
+    # 获取用户在线时长
+    online_time = get_user(current_user.username)
+    
     return render_template('dashboard/profile.html',
-        bound_accounts=bound_accounts,
-        qq_code=qq_code,
-        qq_code_expires_at=qq_code_expires_at
-    )
+                         qq_code=qq_code,
+                         qq_code_expires_at=qq_code_expires_at,
+                         bound_accounts=bound_accounts,
+                         online_time=online_time)
 
 @dashboard_bp.route('/change-password', methods=['GET', 'POST'])
 @login_required

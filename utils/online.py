@@ -38,7 +38,12 @@ def get_all():
             form_type='player',
             status='approved'
         ).all()
-        for i in approved_apps:
+        accounts = {}
+        for app in approved_apps:
+            player_name = app.content.get('player_name')
+            if player_name and player_name not in accounts:
+                accounts[player_name] = app
+        for i in list(accounts.values()):
             if check_player_exists(data, i.content.get('player_name')): 
                 user = User.query.filter_by(id=i.user_id).first()
                 if user:
@@ -46,17 +51,20 @@ def get_all():
                     if not check_player_exists(r_data, username):
                         r_data.append({
                             "player": username,
-                            "time": get_time_by_player(data, i.content.get('player_name')) 
+                            "time": int(get_time_by_player(data, i.content.get('player_name')) )
                         })
                     else:
-                        update_time_by_player(r_data, username, get_time_by_player(r_data, username)  + get_time_by_player(data, i.content.get('player_name')))
+                        update_time_by_player(r_data, username, get_time_by_player(r_data, username)  + int(get_time_by_player(data, i.content.get('player_name'))))
                 else:
                     pass
             else:
                 pass
     else:
         return []
-    return r_data
+    
+    # 按时间排序并只返回前10名
+    r_data.sort(key=lambda x: x["time"], reverse=True)
+    return r_data[:10]
 
 def get_user(username):
     user = User.query.filter_by(username=username).first()
@@ -78,7 +86,7 @@ def get_user(username):
             if data.status_code == 200:
                 data = data.json()
                 t = t + data.get("time", 0)
-    return t
+    return format_time(t)
                 
 
     

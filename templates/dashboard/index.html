@@ -4,6 +4,7 @@
 
 {% block content %}
 <div class="space-y-6">
+
     <!-- 用户信息卡片 -->
     <div class="bg-white rounded-lg shadow p-6">
         <div class="flex items-center space-x-4">
@@ -41,6 +42,25 @@
                 <div class="text-2xl font-bold text-red-500">{{ stats.rejected }}</div>
                 <div class="text-gray-500">未通过</div>
             </div>
+        </div>
+    </div>
+
+
+    <!-- 在线时长排行榜 -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold mb-4">在线时长排行榜</h3>
+        <div class="space-y-4">
+            {% for data in online_ranking %}
+            <div class="flex items-center justify-between py-2 {% if loop.index0 < 3 %}text-yellow-500{% endif %}">
+                <div class="flex items-center space-x-4">
+                    <span class="w-8 h-8 flex items-center justify-center rounded-full {% if loop.index0 < 3 %}bg-yellow-100{% else %}bg-gray-100{% endif %}">
+                        {{ loop.index }}
+                    </span>
+                    <span class="font-medium">{{ data.player }}</span>
+                </div>
+                <span class="text-gray-600">{{ data.time }} 分钟</span>
+            </div>
+            {% endfor %}
         </div>
     </div>
     
@@ -106,7 +126,7 @@
     <!-- 版权信息 -->
     <div class="mt-12 pt-6 border-t border-gray-200">
         <div class="text-center text-sm text-gray-500">
-            <p class="mb-2">Tianji Center v1.0.8 公测版</p>
+            <p class="mb-2">Tianji Center v1.1.0 正式版</p>
             <p>Copyright © 2025 AZ Studio. All rights reserved.</p>
             <p class="mt-1">
                 <a href="https://github.com/AZ-Studio-2023/Tianji_Center" 

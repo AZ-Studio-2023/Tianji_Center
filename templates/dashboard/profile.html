@@ -53,6 +53,12 @@
                         <div class="text-sm text-gray-600">已绑定账号</div>
                     </div>
                 </div>
+                <div class="grid grid-cols-1 gap-4 text-center">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-orange-600">{{ online_time }}</div>
+                        <div class="text-sm text-gray-600">在线时长</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -67,7 +73,7 @@
                 <div class="text-sm text-gray-500 text-center">验证时间：{{ current_user.qq_verified_at|datetime }}</div>
             </div>
             {% else %}
-            <p class="text-gray-600">获取校验码后，请在天际官方QQ群中发送指令：“/绑定 校验码”。绑定完成后，请刷新本页面。</p>
+            <p class="text-gray-600">获取校验码后，请在天际官方QQ群中发送指令："绑定 校验码"。绑定完成后，请刷新本页面。</p>
             {% if not qq_code %}
             <div class="flex items-center space-x-4">
                 <button onclick="getQQCode()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
