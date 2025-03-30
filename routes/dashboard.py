@@ -589,7 +589,9 @@ def profile():
         qq_code_key = f'qq_code:{current_user.id}'
         qq_code = redis_client.get(qq_code_key)
         if qq_code:
-            qq_code_expires_at = datetime.fromtimestamp(redis_client.ttl(qq_code_key))
+            qq_code = qq_code.decode()  # 解码字节串
+            ttl = redis_client.ttl(qq_code_key)
+            qq_code_expires_at = datetime.now(pytz.timezone('Asia/Shanghai')) + timedelta(seconds=ttl)
     
     # 获取已绑定账号数量
     bound_accounts = Application.query.filter_by(
