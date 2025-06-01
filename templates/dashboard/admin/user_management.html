@@ -147,11 +147,10 @@ function verifyQQ(event) {
     // 准备请求数据
     const data = {
         qq: formData.get('qq'),
-        code: formData.get('code'),
-        key: "{{config.KEY}}"
+        code: formData.get('code')
     };
 
-    fetch('http://127.0.0.1:5000/dashboard/verify-qq', {
+    fetch('http://127.0.0.1:5000/dashboard/verify_qq_admin', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'

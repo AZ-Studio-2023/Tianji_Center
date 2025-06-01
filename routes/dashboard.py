@@ -112,21 +112,21 @@ def index():
         'approved': Application.query.filter_by(user_id=current_user.id, status='approved').count(),
         'rejected': Application.query.filter_by(user_id=current_user.id, status='rejected').count()
     }
-    
+
     # 获取当前投票
     current_votes = Vote.query.filter(
         Vote.end_time > datetime.now()
     ).order_by(Vote.end_time.asc()).all()
-    
+
     # 获取今日是否已签到
     today_checkin = CheckIn.query.filter(
         CheckIn.user_id == current_user.id,
         db.func.date(CheckIn.created_at) == datetime.now().date()
     ).first()
-    
+
     # 获取在线时长排行榜
     online_ranking = get_all()
-    
+
     return render_template('dashboard/index.html',
                          stats=stats,
                          current_votes=current_votes,
@@ -567,20 +567,20 @@ def profile():
             old_code = request.form.get('old_code')
             new_email = request.form.get('new_email')
             new_code = request.form.get('new_code')
-            
+
             # 验证原邮箱验证码
             if not verify_email_code(current_user.email, old_code):
                 return jsonify({'error': '原邮箱验证码错误'})
-            
+
             # 验证新邮箱验证码
             if not verify_email_code(new_email, new_code):
                 return jsonify({'error': '新邮箱验证码错误'})
-            
+
             # 更新邮箱
             current_user.email = new_email
             db.session.commit()
             return jsonify({'success': True})
-    
+
     # 获取QQ验证码
     qq_code = None
     qq_code_expires_at = None
@@ -592,17 +592,17 @@ def profile():
             qq_code = qq_code.decode()  # 解码字节串
             ttl = redis_client.ttl(qq_code_key)
             qq_code_expires_at = datetime.now(pytz.timezone('Asia/Shanghai')) + timedelta(seconds=ttl)
-    
+
     # 获取已绑定账号数量
     bound_accounts = Application.query.filter_by(
         user_id=current_user.id,
         status='approved',
         form_type='player'
     ).count()
-    
+
     # 获取用户在线时长
     online_time = get_user(current_user.username)
-    
+
     return render_template('dashboard/profile.html',
                          qq_code=qq_code,
                          qq_code_expires_at=qq_code_expires_at,
@@ -843,6 +843,54 @@ def verify_qq():
 
     if ctrl_key != current_app.config['KEY']:
         return jsonify({'error': '密钥错误'})
+
+    # 在 Redis 中查找所有匹配的验证码
+    redis_client = get_redis_client()
+    all_keys = redis_client.keys('qq_code:*')
+    target_user = None
+
+    # 遍历所有验证码，找到匹配的用户
+    for key in all_keys:
+        stored_code = redis_client.get(key)
+        if stored_code and stored_code.decode() == verify_code:
+            # 从 key 中提取用户 ID
+            user_id = int(key.decode().split(':')[1])
+            target_user = User.query.get(user_id)
+            break
+
+    if not target_user:
+        return jsonify({'error': '验证码错误或已过期'})
+
+    try:
+        # 更新用户的 QQ 验证信息
+        target_user.verified_qq = qq_number
+        target_user.qq_verified_at = get_current_time()
+        db.session.commit()
+
+        # 删除验证码
+        redis_client.delete(f'qq_code:{target_user.id}')
+
+        return jsonify({
+            'message': 'QQ验证成功',
+            'qq_number': qq_number,
+            'verified_at': target_user.qq_verified_at.strftime('%Y-%m-%d %H:%M:%S')
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)})
+
+
+@dashboard_bp.route('/verify_qq_admin')
+@login_required
+def verify_qq_admin(activity_id):
+    if not current_user.is_admin:
+        return jsonify({'error': '无权限查看'})
+
+    qq_number = request.json.get('qq')
+    verify_code = request.json.get('code')
+
+    if not qq_number or not verify_code:
+        return jsonify({'error': '参数不完整'})
 
     # 在 Redis 中查找所有匹配的验证码
     redis_client = get_redis_client()
@@ -1560,25 +1608,25 @@ def check_train_number(train_number):
     """检查车次是否已被占用"""
     if len(train_number) < 2:
         return jsonify({'error': '无效的车次号'})
-        
+
     prefix = train_number[0]
     number = train_number[1:]
-    
+
     if prefix not in ['G', 'C', 'D', 'T', 'K', 'Z']:
         return jsonify({'error': '无效的车次前缀'})
-        
+
     try:
         number_int = int(number)
         if not (1 <= number_int <= 9999):
             return jsonify({'error': '车次号必须在1-9999之间'})
     except ValueError:
         return jsonify({'error': '无效的车次号'})
-    
+
     existing = TrainNumber.query.filter_by(
         prefix=prefix,
         number=number
     ).first()
-    
+
     return jsonify({
         'available': not bool(existing),
         'message': '车次可用' if not existing else '车次已被占用'
@@ -1818,7 +1866,7 @@ def resetPassword(userID):
         )
         msg.body = f'您的新密码是：{pw}。请尽快修改！若非本人要求，请立即联系我们！'
         mail.send(msg)
-        
+
         return jsonify({'message': '已发送'})
     except Exception as e:
         current_app.logger.error(f'发送失败: {str(e)}')
