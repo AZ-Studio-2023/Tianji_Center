@@ -880,9 +880,9 @@ def verify_qq():
         return jsonify({'error': str(e)})
 
 
-@dashboard_bp.route('/verify_qq_admin')
+@dashboard_bp.route('/verify_qq_admin', methods=['POST'])
 @login_required
-def verify_qq_admin(activity_id):
+def verify_qq_admin():
     if not current_user.is_admin:
         return jsonify({'error': '无权限查看'})
 
