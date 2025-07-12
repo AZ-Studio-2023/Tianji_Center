@@ -84,7 +84,7 @@
                         同意：{{ vote.agree_votes }} | 反对：{{ vote.disagree_votes }}
                     </p>
                 </div>
-                {% if not vote.has_voted and vote.is_active %}
+                {% if not vote.has_voted and vote.status == "active" and current_time > vote.start_time %}
                 <div class="space-x-2">
                     <button onclick="vote({{ vote.id }}, true)" 
                             class="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600">
@@ -95,13 +95,13 @@
                         不同意
                     </button>
                 </div>
-                {% elif not vote.is_active %}
+                {% elif vote.start_time > current_time %}
                 <div class="text-gray-500">
-                    {% if vote.start_time > current_time %}
                     未开始
-                    {% else %}
+                </div>
+                {% elif current_time > end_time %}
+                <div class="text-gray-500">
                     已结束
-                    {% endif %}
                 </div>
                 {% else %}
                 <div class="text-gray-500">已投票</div>

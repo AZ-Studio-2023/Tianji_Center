@@ -1,0 +1,46 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}答题情况{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto bg-white p-8 rounded shadow mt-8">
+    <h2 class="text-2xl font-bold mb-6 text-blue-700">答题情况 - {{ exam.name }}</h2>
+    <div class="mb-4">
+        <span class="font-semibold">试卷类型：</span>
+        {% if exam.must_exam %}<span class="ml-2 px-2 py-1 text-xs bg-red-200 text-red-800 rounded">必考</span>{% endif %}
+        {% if exam.instant_score %}<span class="ml-2 px-2 py-1 text-xs bg-green-200 text-green-800 rounded">即时查看</span>{% endif %}
+    </div>
+    <table class="w-full border mt-4">
+        <thead>
+            <tr class="bg-gray-100">
+                <th class="p-2">考生ID</th>
+                <th class="p-2">分数</th>
+                <th class="p-2">提交时间</th>
+                <th class="p-2">答题详情</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for paper in papers %}
+            <tr class="border-b">
+                <td class="p-2">{{ paper.user_id }}</td>
+                <td class="p-2">{{ paper.score }}</td>
+                <td class="p-2">{{ paper.submitted_at|datetime }}</td>
+                <td class="p-2">
+                    <details>
+                        <summary class="cursor-pointer text-blue-600">展开</summary>
+                        <ul class="mt-2 space-y-1">
+                            {% for q in questions %}
+                            <li class="border rounded p-2 bg-gray-50">
+                                <div class="font-semibold">{{ loop.index }}. {{ q.content }}</div>
+                                <div class="text-sm text-gray-600">考生答案：{{ paper.answers[q.id|string] }}</div>
+                                <div class="text-sm text-gray-400">标准答案：{{ q.answer }}</div>
+                                <div class="text-sm">分值：{{ q.score }}</div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </details>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

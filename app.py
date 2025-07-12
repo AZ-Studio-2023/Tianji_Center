@@ -54,11 +54,13 @@ def create_app():
     from routes.oauth import oauth_bp
     from routes.structure import structure_bp
     from routes.discourse import discourse_bp
+    from routes.exam import exam_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(oauth_bp, url_prefix='/oauth')
     app.register_blueprint(structure_bp, url_prefix='/structure')
     app.register_blueprint(discourse_bp, url_prefix='/discourse')
+    app.register_blueprint(exam_bp, url_prefix='/exam')
 
     @app.route('/')
     def index():

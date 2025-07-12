@@ -220,6 +220,10 @@
                            class="nav-link {% if request.endpoint == 'dashboard.activities' %}active{% endif %}">
                             <i class="fas fa-calendar-alt"></i>活动
                         </a>
+                        <a href="{{ url_for('exam.index') }}"
+                           class="nav-link {% if request.endpoint.startswith('exam.') %}active{% endif %}">
+                            <i class="fas fa-file-alt"></i>考试中心
+                        </a>
                     </div>
 
                     <!-- 结构管理 -->

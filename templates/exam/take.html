@@ -1,0 +1,32 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}参与考试{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto bg-white p-8 rounded shadow">
+    <h2 class="text-xl font-bold mb-4">{{ exam.name }}</h2>
+    <form method="post">
+        {% for q in questions %}
+        <div class="mb-6">
+            <div class="font-semibold mb-2">{{ loop.index }}. {{ q.content }}</div>
+            {% if q.type == 'single' %}
+                {% set opts = q.options | fromjson %}
+                {% for opt in opts %}
+                <label class="block mb-1">
+                    <input type="radio" name="q{{ q.id }}" value="{{ opt }}" class="mr-2">{{ opt }}
+                </label>
+                {% endfor %}
+            {% elif q.type == 'multiple' %}
+                {% set opts = q.options | fromjson %}
+                {% for opt in opts %}
+                <label class="block mb-1">
+                    <input type="checkbox" name="q{{ q.id }}" value="{{ opt }}" class="mr-2">{{ opt }}
+                </label>
+                {% endfor %}
+            {% elif q.type == 'blank' %}
+                <input type="text" name="q{{ q.id }}" maxlength="{{ q.blank_length }}" class="border rounded px-3 py-2 w-{{ q.blank_length * 2 }}">
+            {% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">提交考试（扣除10天际币）</button>
+    </form>
+</div>
+{% endblock %}

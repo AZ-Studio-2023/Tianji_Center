@@ -1,0 +1,25 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}批卷{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto bg-white p-8 rounded shadow">
+    <h2 class="text-xl font-bold mb-4">批卷 - {{ exam.name }}</h2>
+    {% for paper in papers %}
+    <div class="mb-8 border-b pb-6">
+        <div class="mb-2 font-semibold">考生：<span class="text-gray-400">（已隐藏）</span></div>
+        <form method="post" action="{{ url_for('exam.grade_paper', paper_id=paper.id) }}">
+            {% for q in paper.questions %}
+            <div class="mb-4">
+                <div class="mb-1">{{ loop.index }}. {{ q.content }}</div>
+                <div class="mb-1">考生答案：{{ paper.answers[q.id] }}</div>
+                <div class="mb-1">标准答案：{{ q.answer }}</div>
+                {% if q.type == 'blank' %}
+                <input type="number" name="score_{{ q.id }}" min="0" max="{{ q.score }}" value="{{ paper.scores[q.id] if paper.scores else q.score }}" class="border rounded px-2 py-1 w-20">
+                {% endif %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded">提交批改</button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

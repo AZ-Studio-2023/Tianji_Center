@@ -1,0 +1,41 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}考试中心{% endblock %}
+{% block content %}
+<div class="mb-6 flex justify-between items-center">
+    <h1 class="text-2xl font-bold">考试中心</h1>
+    {% if current_user.is_admin %}
+    <a href="{{ url_for('exam.create_exam') }}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">添加考试</a>
+    {% endif %}
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for exam in exams %}
+    <div class="bg-white shadow rounded-lg p-6 flex flex-col justify-between">
+        <div>
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold">{{ exam.name }}</h2>
+                {% if exam.pinned %}<span class="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded">置顶</span>{% endif %}
+                {% if exam.must_exam %}<span class="text-xs bg-red-200 text-red-800 px-2 py-1 rounded ml-2">必考</span>{% endif %}
+            </div>
+            <p class="text-gray-600 mt-2">{{ exam.description }}</p>
+            <div class="mt-2 text-sm text-gray-500">时长：{{ exam.duration }}分钟</div>
+            {% if exam.start_time %}
+            <div class="mt-1 text-xs text-gray-400">可考试时间：{{ exam.start_time|datetime }} ~ {{ exam.end_time|datetime }}</div>
+            {% endif %}
+        </div>
+        <div class="mt-4 flex flex-wrap gap-2">
+            {% if current_user.is_admin %}
+                <a href="{{ url_for('exam.edit_exam', exam_id=exam.id) }}" class="text-blue-600 hover:underline">编辑</a>
+                <a href="{{ url_for('exam.set_graders', exam_id=exam.id) }}" class="text-green-600 hover:underline">批卷人</a>
+                <a href="{{ url_for('exam.grade', exam_id=exam.id) }}" class="text-purple-600 hover:underline">批卷</a>
+                <a href="{{ url_for('exam.toggle_hidden', exam_id=exam.id) }}" class="text-gray-600 hover:underline">{{ '隐藏' if not exam.hidden else '显示' }}</a>
+                <a href="{{ url_for('exam.toggle_pinned', exam_id=exam.id) }}" class="text-yellow-600 hover:underline">{{ '置顶' if not exam.pinned else '取消置顶' }}</a>
+                <a href="{{ url_for('exam.delete_exam', exam_id=exam.id) }}" class="text-red-600 hover:underline" onclick="return confirm('确定要删除该考试吗？')">删除</a>
+            {% elif exam.grader_ids and current_user.id in exam.grader_ids %}
+                <a href="{{ url_for('exam.grade', exam_id=exam.id) }}" class="text-purple-600 hover:underline">批卷</a>
+            {% endif %}
+            <a href="{{ url_for('exam.take_exam', exam_id=exam.id) }}" class="text-blue-700 hover:underline">参与考试</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
